@@ -34,7 +34,9 @@ from transformers import (
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizerBase,
+    Qwen2VLForConditionalGeneration,
     Qwen2_5_VLForConditionalGeneration,
+    LlavaForConditionalGeneration,
     Trainer,
     TrainerCallback,
 )
@@ -189,8 +191,13 @@ class Qwen2VLGRPOTrainer(Trainer):
             model_init_kwargs["use_cache"] = (
                 False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
             )
-            if "Qwen" in model_id:
+            if "Qwen2-VL" in model_id:
+                model = Qwen2VLForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
+            elif "Qwen2.5-VL" in model_id:
                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
+            elif "llava" in model_id:
+                model_init_kwargs.pop("use_cache")
+                model = LlavaForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
             elif "Aria" in model_id:
                 model_init_kwargs.pop("use_cache")
                 model = AriaForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
@@ -211,8 +218,12 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         # Reference model
         if is_deepspeed_zero3_enabled():
-            if "Qwen" in model_id:
+            if "Qwen2-VL" in model_id:
+                self.ref_model = Qwen2VLForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
+            elif "Qwen2.5-VL" in model_id:
                 self.ref_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
+            elif "llava" in model_id:
+                self.ref_model = LlavaForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
             elif "Aria" in model_id:
                 self.ref_model = AriaForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
             else:
@@ -227,7 +238,7 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         # Processing class
         if processing_class is None:
-            if "Qwen" in model_id or "Aria" in model_id:
+            if "Qwen2-VL" in model_id or "Qwen2.5-VL" in model_id or "Aria" in model_id or "llava" in model_id:
                 processing_class = AutoProcessor.from_pretrained(model_id)
                 pad_token_id = processing_class.tokenizer.pad_token_id
                 processing_class.pad_token_id = pad_token_id
@@ -416,10 +427,9 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         inputs_vllm = []
 
-        for messages in prompts:
+        for image_data, messages in zip(images, prompts):
             prompt = self.processing_class.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            image_data, _ = process_vision_info(messages)
-
+            # image_data, _ = process_vision_info(messages)
             for i in range(batch_size):
                 inputs_vllm.append({
                     "prompt": prompt,

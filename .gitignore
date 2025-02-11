@@ -177,3 +177,9 @@ scripts/
 checkpoints/
 .vscode/
 .idea/
+
+local_scripts/train/
+local_scripts/eval/
+
+*.json
+*.jsonl

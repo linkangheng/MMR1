@@ -23,6 +23,7 @@ from math_verify import parse, verify
 from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
 
 from trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
+import time
 
 os.environ["WANDB_MODE"] = "offline"
 
@@ -90,8 +91,7 @@ def accuracy_reward(completions, solution, **kwargs):
 
         rewards.append(reward)
         # if os.getenv("DEBUG_MODE") == "true":
-        # log_path = os.getenv("LOG_PATH")
-        log_path = 'train_1.log'
+        log_path = os.getenv("LOG_PATH", f"/data/ICCV2025/PaR/MMR1/logs/train_{time.strftime('%Y-%m-%d')}.log")
         with open(log_path, "a") as f:
             try:
                 f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
@@ -140,29 +140,27 @@ def main(script_args, training_args, model_args):
         }
 
     def make_conversation_image(example):
+        QUESTION_TEMPLATE = "{Question}  Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags."
         return {
             "prompt": json.dumps([
                 {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image", "image": "file://" + example['image_path']},
-                        {"type": "text", "text": example["problem"]},
+                        {"type": "image"},
+                        {"type": "text", "text": QUESTION_TEMPLATE.format(Question=example["problem"])},
                     ],
                 },
-            ])
+            ]),
         }
 
     if "image" in dataset[script_args.dataset_train_split].features:
-        dataset = dataset.map(make_conversation_image)
+        dataset = dataset.map(make_conversation_image, num_proc=64)
     else:
         dataset = dataset.map(make_conversation)
         dataset = dataset.remove_columns("messages")
 
-    if "Qwen" in model_args.model_name_or_path or "Aria" in model_args.model_name_or_path:
-        trainer_cls = Qwen2VLGRPOTrainer
-    else:
-        trainer_cls = GRPOTrainer
+    trainer_cls = Qwen2VLGRPOTrainer
 
     # Initialize the GRPO trainer
     trainer = trainer_cls(

@@ -1,4 +1,4 @@
-# R1-Multimodal-Journey
+# MMR1
 
 **Environment**
 
