@@ -5,14 +5,25 @@ import json
 from tqdm import tqdm
 import re
 import os
+import datetime
+
+# "pixmo_count_test540_counting_problems", "pixmo_count_validation540_counting_problems", "superclevr_test200_counting_problems", "countbenchqa_test491_counting_problems"
+choises = [
+    "pixmo_count_test540_counting_problems",
+    "pixmo_count_validation540_counting_problems",
+    "superclevr_test200_counting_problems",
+    "countbenchqa_test491_counting_problems"
+]
+TASK = choises[3]
 
 EVAL_ROOT="/data/ICCV2025/PaR/MMR1/eval"
-MODEL_ROOT="/mnt/jfs-test/checkpoints/par/duidian"
-MODEL_NAME="r1v_qwen2-vl-2b_vllm_" # Qwen2vl-2b-Instruct for original scores
+MODEL_ROOT="/mnt/jfs-test/checkpoints/mmr1/duidian"
+MODEL_NAME="mmr1_qwen2_vl_2b_vllm_counting_toy" # Qwen2vl-2b-Instruct for original scores
 MODEL_PATH=f"{MODEL_ROOT}/{MODEL_NAME}"
 BSZ=64 # reduce it if GPU OOM
-OUTPUT_PATH=f"{EVAL_ROOT}/logs/counting_results_superclevr_200_{MODEL_NAME}_grpo_100.json"
-PROMPT_PATH=f"{EVAL_ROOT}/prompts/superclevr_test200_counting_problems.jsonl"
+
+OUTPUT_PATH=f"{EVAL_ROOT}/logs/{TASK}_{MODEL_NAME}_{datetime.datetime.now().strftime('%m%d_%H%M%S')}.json"
+PROMPT_PATH=f"{EVAL_ROOT}/prompts/{TASK}.jsonl"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 #We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.

@@ -424,7 +424,6 @@ class Qwen2VLGRPOTrainer(Trainer):
         if self.max_prompt_length is not None:
             batched_inputs["input_ids"] = batched_inputs["input_ids"][:, -self.max_prompt_length:]
             batched_inputs["attention_mask"] = batched_inputs["attention_mask"][:, -self.max_prompt_length:]
-
         inputs_vllm = []
 
         for image_data, messages in zip(images, prompts):

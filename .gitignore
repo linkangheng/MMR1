@@ -183,3 +183,5 @@ local_scripts/eval/
 
 *.json
 *.jsonl
+
+src/open_r1/prompts.py
