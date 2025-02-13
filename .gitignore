@@ -171,15 +171,11 @@ cython_debug/
 .pypirc
 
 # Temp folders
-data/
 wandb/
 scripts/
 checkpoints/
 .vscode/
 .idea/
-
-local_scripts/train/
-local_scripts/eval/
 
 *.json
 *.jsonl
