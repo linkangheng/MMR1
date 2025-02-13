@@ -80,6 +80,5 @@ train_dataset = DatasetDict({
 
 train_save_path = "/mnt/jfs-test/data/perpo/"
 
-train_dataset.to_parquet(train_save_path)
-# train_dataset.save_to_disk(train_save_path)
+train_dataset.save_to_disk(train_save_path)
 print(f"Saved to {train_save_path}")
