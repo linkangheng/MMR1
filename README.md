@@ -13,6 +13,8 @@
 📋 **ToDos**
 
 - [x] Accelerate and support `vllm`
+- [x] Fix the bug of gradient checkpointing
+- [ ] Support Multi-machine parallel
 - [ ] Support scale up rollout size
 - [ ] Support `Kimi-KL`
 - [ ] Support `OCR` Tasks
