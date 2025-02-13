@@ -54,6 +54,10 @@ class GRPOScriptArguments(ScriptArguments):
         default=3136,
         metadata={"help": "Minimum number of pixels for the image"},
     )
+    prompt_template: Optional[str] = field(
+        default="reasoning",
+        metadata={"help": "Prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
+    )
 
 reward_funcs_registry = {
     "count_acc": accuracy_reward,
@@ -63,12 +67,11 @@ reward_funcs_registry = {
     "yjs": yjs_perpo_reward,
 }
 
-SYSTEM_PROMPT = (
-    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
-    "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
-    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
-    "<think> reasoning process here </think><answer> answer here </answer>"
-)
+prompt_registry = {
+    "llava": LLAVA_PROMPT,
+    "qwen": QWEN2_PROMPT,
+    "reasoning": SYSTEM_PROMPT,
+}
 
 def main(script_args, training_args, model_args):
     # Get reward functions
@@ -83,10 +86,11 @@ def main(script_args, training_args, model_args):
         dataset = load_from_disk(script_args.dataset_name)
 
     # Format into conversation
+    system_prompt = prompt_registry[script_args.prompt_template]
     def make_conversation(example):
         return {
             "prompt": json.dumps([
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": example["problem"]},
             ])
         }
@@ -101,7 +105,7 @@ def main(script_args, training_args, model_args):
         question = question + "." if not question.endswith(".") else question
         return {
             "prompt": json.dumps([
-                {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
                 {
                     "role": "user",
                     "content": [
