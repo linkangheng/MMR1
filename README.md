@@ -14,8 +14,8 @@
 
 - [x] Accelerate and support `vllm`
 - [x] Fix the bug of gradient checkpointing
-- [ ] Support Multi-machine parallel
-- [ ] Support scale up rollout size
+- [x] Support scale up rollout size
+- [] Support Multi-machine parallel
 - [ ] Support `Kimi-KL`
 - [ ] Support `OCR` Tasks
 - [ ] Support `Detection` Tasks
@@ -28,3 +28,32 @@ You can run the following command to quickly start the training of `LLaVA-GRPO-P
 ```bash
 bash local_scripts/train/train_llava_perpo.sh
 ```
+
+🥩 **Mini-Batch**
+Optimize GRPO memory usage by redefining per_device_batch_size as generations per device, introduces a more flexible approach:
+
+- Instead of defining per_device_batch_size as the number of prompts per device, it now represents the number of generations per device.
+- This allows for much greater flexibility in choosing the number of generations (G) and the batch size per device.
+- The only constraint is that the global batch size (num_processes * per_device_batch_size) must be divisible by G.
+
+Note that these settings should be equivalent:
+
+```python
+num_generations = ...  # eg, 8
+num_prompts_per_device = ...  # eg, 1
+# main
+GRPOConfig(num_generations=num_generations, per_device_batch_size=num_prompts_per_device, ...)
+# this PR
+GRPOConfig(num_generations=num_generations, per_device_batch_size=num_generations*num_prompts_per_device, ...)
+```
+
+<table align="center" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center"><h3>Original Training</h3></td>
+    <td align="center"><h3>Mini-Batch Training</h3></td>
+  </tr>
+  <tr>
+    <td><img src="./assets/original_training.png"></td>
+    <td><img src="./assets/mini_batch_training.png"></td>
+  </tr>
+</table>
