@@ -179,3 +179,6 @@ checkpoints/
 
 *.json
 *.jsonl
+
+dirty_cache/
+local_scripts/eval/recore_wandb.py
