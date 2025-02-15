@@ -1,23 +1,23 @@
 #!/bin/bash
+export NCCL_ALGO=^Ring
+export NCCL_NET_OVERHEAD=1000000
+export TORCHRUN=/data/ICCV2025/PaR/MMR1/local_scripts/torchrun.sh
 
-NNODES=1
-NODE_RANK=0
-MASTER_ADDR=localhost
-MASTER_PORT=12345
-cd /data/ICCV2025/PaR/MMR1
-ROLLOUT_SIZE=329
+NNODES=2
+ROLLOUT_SIZE=2
 OUTPUT_DIR="/mnt/jfs-test/checkpoints/mmr1/debug/qwen2-vl-2b_vllm_perpo_roll${ROLLOUT_SIZE}"
-
 RUN_NAME="qwen2-vl-2b_vllm_perpo_roll${ROLLOUT_SIZE}"
-export LOG_PATH="${OUTPUT_DIR}/train.log"
-export WANDB_PROJECT="MMR1"
+LOG_PATH="${OUTPUT_DIR}/train.log"
+WANDB_PROJECT="MMR1"
+WANDB_MODE="disabled"
 
-torchrun \
-    --nproc_per_node="7" \
-    --nnodes="${NNODES}" \
-    --node_rank="${NODE_RANK}" \
-    --master_addr="${MASTER_ADDR}" \
-    --master_port="${MASTER_PORT}" \
+rlaunch --gpu 8 --cpu 64 --memory=$((1024*800)) --charged-group pretrain2 --private-machine=yes --positive-tags feature/gpfs=yes \
+    --set-env DISTRIBUTED_JOB=true \
+    --set-env LOG_PATH="${LOG_PATH}" \
+    --set-env WANDB_PROJECT="${WANDB_PROJECT}" \
+    --set-env WANDB_MODE="${WANDB_MODE}" \
+    --set-env HF_DATASETS_CACHE="/mnt/jfs-test/.cache/huggingface" \
+    --mount=juicefs+s3://oss.i.shaipower.com/kanelin-jfs:/mnt/jfs-test -P $NNODES -- $TORCHRUN \
     src/open_r1/grpo_vllm.py \
     --deepspeed local_scripts/zero3.json \
     --output_dir "${OUTPUT_DIR}" \
@@ -25,9 +25,9 @@ torchrun \
     --dataset_name /mnt/jfs-test/data/perpo \
     --max_prompt_length 2048 \
     --max_completion_length 768 \
-    --per_device_train_batch_size 47 \
+    --per_device_train_batch_size 4 \
     --num_generations ${ROLLOUT_SIZE} \
-    --gradient_accumulation_steps 14 \
+    --gradient_accumulation_steps 1 \
     --logging_steps 1 \
     --bf16 \
     --gradient_checkpointing true \
@@ -36,9 +36,8 @@ torchrun \
     --num_train_epochs 1 \
     --run_name ${RUN_NAME} \
     --save_steps 100 \
-    --report_to wandb \
+    --report_to none \
     --reward_funcs "yjs" \
     --prompt_template "qwen" \
     --save_only_model true \
     --seed 42
-    # >> train.log 2>&1
