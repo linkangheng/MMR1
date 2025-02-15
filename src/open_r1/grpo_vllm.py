@@ -22,6 +22,7 @@ from datasets import load_dataset, load_from_disk
 from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
 from rewards import *
 from prompts import *
+from temperature import *
 
 from trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
 import time
@@ -32,50 +33,58 @@ import wandb
 # wandb.init(project="R1-multimodal", name="Qwen2_5_7B_R1-multimodal")
 
 
-@dataclass
-class GRPOScriptArguments(ScriptArguments):
-    """
-    Script arguments for the GRPO training script.
 
-    Args:
-        reward_funcs (`list[str]`):
-            List of reward functions. Possible values: 'accuracy', 'format'.
-    """
+from arguments import GRPOScriptArguments
 
-    reward_funcs: list[str] = field(
-        default_factory=lambda: ["accuracy", "format"],
-        metadata={"help": "List of reward functions. Possible values: 'accuracy', 'format'"},
-    )
-    max_pixels: Optional[int] = field(
-        default=12845056,
-        metadata={"help": "Maximum number of pixels for the image"},
-    )
-    min_pixels: Optional[int] = field(
-        default=3136,
-        metadata={"help": "Minimum number of pixels for the image"},
-    )
-    prompt_template: Optional[str] = field(
-        default="reasoning",
-        metadata={"help": "Prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
-    )
+
+
 
 reward_funcs_registry = {
     "count_acc": accuracy_reward,
     "count_format": format_reward,
     "perpo_format": perpo_format_reward,
     "perpo_iou": perpo_iou_reward,
-    "yjs": yjs_perpo_reward,
+    "yjs_grounding": yjs_perpo_reward,
+    "yjs_ocr": yjs_perpo_ocr_reward,
 }
 
 prompt_registry = {
     "llava": LLAVA_PROMPT,
     "qwen": QWEN2_PROMPT,
     "reasoning": SYSTEM_PROMPT,
+    "grounding": GROUNDING_PROMPT, 
+    "ocr": OCR_PROMPT,
+}
+
+temperature_func_registry = {
+    "linear": temperature_linear, 
+    "const": temperature_const, 
+}
+
+order_dataset_registry = {
+    "llava1.5-7b_easy2diff": '_easy2diff_llava1.57b', 
+    "qwen22b_easy2diff": '_easy2diff_qwen22b', 
+    "random": '', 
 }
 
 def main(script_args, training_args, model_args):
     # Get reward functions
     reward_funcs = [reward_funcs_registry[func] for func in script_args.reward_funcs]
+    # Get temperature function
+    temperature_func = temperature_func_registry[script_args.temperature_func]
+    # modify some hyperparameters
+    if script_args.kl_approximator == 'fullkimi':
+        training_args.sync_ref_model = True
+        training_args.ref_model_mixup_alpha = 1.0
+        training_args.ref_model_sync_steps = 1
+
+    
+    # save args to output_dir
+    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'script_args.txt'))
+    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'training_args.txt'))
+    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'model_args.txt'))
+
+
 
     # Load the dataset
     try:
@@ -83,7 +92,7 @@ def main(script_args, training_args, model_args):
         if "image" not in dataset[script_args.dataset_train_split].features:
             raise ValueError("Some bugs happens when loading the dataset.. Plase check the hf-dataset is correct created.")
     except:
-        dataset = load_from_disk(script_args.dataset_name)
+        dataset = load_from_disk(script_args.dataset_name+order_dataset_registry[script_args.order_dataset])
 
     # Format into conversation
     system_prompt = prompt_registry[script_args.prompt_template]
@@ -135,6 +144,8 @@ def main(script_args, training_args, model_args):
         attn_implementation=model_args.attn_implementation,
         max_pixels=script_args.max_pixels,
         min_pixels=script_args.min_pixels,
+        script_args=script_args, 
+        temperature_func=temperature_func
     )
 
     # Train and push the model to the Hub
@@ -145,11 +156,19 @@ def main(script_args, training_args, model_args):
     if training_args.push_to_hub:
         trainer.push_to_hub(dataset_name=script_args.dataset_name)
 
+def save_args_to_txt(args, filename):
+    """
+    将 argparse 解析的参数保存到 txt 文件中
+    :param args: argparse.Namespace 对象，包含解析后的参数
+    :param filename: 要保存的文件名
+    """
+    with open(filename, 'w') as f:
+        for key, value in vars(args).items():
+            f.write(f"{key}: {value}\n")
 
 if __name__ == "__main__":
     parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
     script_args, training_args, model_args = parser.parse_args_and_config()
-    training_args.save_steps = 100  # Save checkpoint every 100 steps
     print('training_args:\n', training_args)
     print('script_args:\n', script_args)
     print('model_args:\n', model_args)
