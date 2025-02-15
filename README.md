@@ -1,16 +1,16 @@
 # MMR1
 
-⚙️ **Environment**
+## ⚙️ **Environment**
 
 - Follow the instruction in https://github.com/FanqingM/R1-Multimodal-Journey
 - Update the transformers to the 4.49.0.dev0 to support the Qwen2.5_VL
 - `pip install vllm == 0.7.2 trl == 0.15.0.dev0` to support vLLM
 
-🚨 **Notes**
+## 🚨 **Notes**
 
 - You are supported to get the permission of `B:kanelin-jfs` and rlaunch your machine by `--mount=juicefs+s3://oss.i.shaipower.com/kanelin-jfs:/mnt/jfs-test` to access the dataset and the model.
 
-📋 **ToDos**
+## 📋 **ToDos**
 
 - [x] Accelerate and support `vllm`
 - [x] Fix the bug of gradient checkpointing
@@ -28,7 +28,7 @@
 ``` python
 ```
 
-🚀 **Quick Start**
+## 🚀 **Quick Start**
 
 You can run the following command to quickly start the training of `LLaVA-GRPO-Perpo`.
 
@@ -36,7 +36,7 @@ You can run the following command to quickly start the training of `LLaVA-GRPO-P
 bash local_scripts/train/train_llava_perpo.sh
 ```
 
-🥩 **Mini-Batch**
+## 🥩 **Mini-Batch**
 Optimize GRPO memory usage by redefining per_device_batch_size as generations per device, introduces a more flexible approach:
 
 - Instead of defining per_device_batch_size as the number of prompts per device, it now represents the number of generations per device.
