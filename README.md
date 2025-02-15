@@ -15,7 +15,7 @@
 - [x] Accelerate and support `vllm`
 - [x] Fix the bug of gradient checkpointing
 - [x] Support scale up rollout size
-- [] Support Multi-machine parallel
+- [ ] Support Multi-machine parallel
 - [ ] Support `Kimi-KL`
 - [ ] Support `OCR` Tasks
 - [ ] Support `Detection` Tasks
