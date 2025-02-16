@@ -182,3 +182,12 @@ checkpoints/
 
 dirty_cache/
 local_scripts/eval/recore_wandb.py
+evaluate_qwen_by_reward.py
+local_scripts/data/ocr_data.py
+local_scripts/train/train.sh
+perpo_data.py
+perpo_ocr_edit_distance_reward_error.txt
+train.sh
+train_llava1.57b_perpo.sh
+train_qwen22b_perpo-ocr.sh
+train_qwen22b_perpo.sh
