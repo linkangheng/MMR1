@@ -37,13 +37,18 @@ For literary creation task, we expect entropy to increase. this can be controlle
 
 `-entropy_weight`: the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease.
 
-`-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "const"
+`-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "constant"
 
 `-order_dataset`： which order to use. We provide "llava1.5-7b_easy2diff", "random", "qwen2-2b_easy2diff" for training. The truly dataset name used in training is `args.dataset_name+args.order_dataset`.
+
 `-learning_rate`: the laerning_rate for begining training. The learning rate will end to 0.
+
 `-sync_ref_model`: whether to update ref modeel while training.
+
 `-ref_model_mixup_alpha`: the alpha to mix policy model and ref moodel: `π_ref = α * π_θ + (1 - α) * π_ref_prev`. In kimi1.5, they set the value 1.0
+
 `-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
+
 `-num_generations`: the rollouts number for each sample. also the group size in grpo.
 
 
