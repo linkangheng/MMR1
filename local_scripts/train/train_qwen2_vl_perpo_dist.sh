@@ -38,6 +38,6 @@ rlaunch --gpu 8 --cpu 64 --memory=$((1024*800)) --charged-group pretrain2 --priv
     --save_steps 100 \
     --report_to none \
     --reward_funcs "yjs" \
-    --prompt_template "qwen" \
+    --system_prompt_template "qwen" \
     --save_only_model true \
     --seed 42

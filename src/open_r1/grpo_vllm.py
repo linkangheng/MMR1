@@ -18,19 +18,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset, load_from_disk, Image, Value
 from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
-from rewards import *
-from prompts import *
-
-from trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
-import time
-
-import json
-import wandb
-
-# wandb.init(project="R1-multimodal", name="Qwen2_5_7B_R1-multimodal")
-
+from open_r1.constants import reward_funcs_registry, system_prompt_registry, question_template_registry, answer_template_registry
+from open_r1.utils import *
+from open_r1.trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
 
 @dataclass
 class GRPOScriptArguments(ScriptArguments):
@@ -54,74 +46,59 @@ class GRPOScriptArguments(ScriptArguments):
         default=3136,
         metadata={"help": "Minimum number of pixels for the image"},
     )
-    prompt_template: Optional[str] = field(
+    system_prompt_template: Optional[str] = field(
         default="reasoning",
-        metadata={"help": "Prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
+        metadata={"help": "System prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
     )
-
-reward_funcs_registry = {
-    "count_acc": accuracy_reward,
-    "count_format": format_reward,
-    "perpo_format": perpo_format_reward,
-    "perpo_iou": perpo_iou_reward,
-    "yjs": yjs_perpo_reward,
-}
-
-prompt_registry = {
-    "llava": LLAVA_PROMPT,
-    "qwen": QWEN2_PROMPT,
-    "reasoning": SYSTEM_PROMPT,
-}
+    question_template: Optional[str] = field(
+        default="default",
+        metadata={"help": "Question template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
+    )
+    answer_template: Optional[str] = field(
+        default="default",
+        metadata={"help": "Answer template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
+    )
+    train_sample_size: Optional[int] = field(
+        default=None,
+        metadata={"help": "Train sample size. If None, use all samples."},
+    )
 
 def main(script_args, training_args, model_args):
     # Get reward functions
     reward_funcs = [reward_funcs_registry[func] for func in script_args.reward_funcs]
 
     # Load the dataset
-    try:
-        dataset = load_dataset(script_args.dataset_name, name=script_args.dataset_config)
-        if "image" not in dataset[script_args.dataset_train_split].features:
-            raise ValueError("Some bugs happens when loading the dataset.. Plase check the hf-dataset is correct created.")
-    except:
-        dataset = load_from_disk(script_args.dataset_name)
+    if "json" in script_args.dataset_name:
+        # json dataset
+        dataset = load_dataset('json',data_files=script_args.dataset_name,)
+    else:
+        try:
+            # hf-online dataset
+            dataset = load_dataset(script_args.dataset_name)
+            if "image" not in dataset[script_args.dataset_train_split].features:
+                raise ValueError("The dataset is created locally.")
+        except:
+            # hf-local dataset
+            dataset = load_from_disk(script_args.dataset_name)
+    
+    # sample from trainset
+    if script_args.train_sample_size is not None:
+        dataset[script_args.dataset_train_split] = dataset['train'].select(range(script_args.train_sample_size))
 
     # Format into conversation
-    system_prompt = prompt_registry[script_args.prompt_template]
-    def make_conversation(example):
-        return {
-            "prompt": json.dumps([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": example["problem"]},
-            ])
-        }
-
-    def make_conversation_image(example):
-        # only for reasoning task
-        # QUESTION_TEMPLATE = "{Question}  Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags."
-
-        # general template
-        QUESTION_TEMPLATE = "{Question}"
-        question = example["problem"]
-        question = question + "." if not question.endswith(".") else question
-        return {
-            "prompt": json.dumps([
-                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": QUESTION_TEMPLATE.format(Question=question)},
-                    ],
-                },
-            ]),
-        }
-
-    if "image" in dataset[script_args.dataset_train_split].features:
-        dataset = dataset.map(make_conversation_image, num_proc=64)
-    else:
-        dataset = dataset.map(make_conversation)
-        dataset = dataset.remove_columns("messages")
-
+    system_prompt = system_prompt_registry[script_args.system_prompt_template]
+    question_template = question_template_registry[script_args.question_template]
+    answer_template = answer_template_registry[script_args.answer_template]
+    map_func = json_map if "json" in script_args.dataset_name else make_conversation_image
+    dataset = dataset.map(
+        map_func,
+        fn_kwargs={
+            "system_prompt": system_prompt,
+            "question_template": question_template,
+            "answer_template": answer_template
+        },
+        num_proc=64
+    ).cast_column("image", Image())
     trainer_cls = Qwen2VLGRPOTrainer
 
     # Initialize the GRPO trainer
@@ -145,11 +122,9 @@ def main(script_args, training_args, model_args):
     if training_args.push_to_hub:
         trainer.push_to_hub(dataset_name=script_args.dataset_name)
 
-
 if __name__ == "__main__":
     parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
     script_args, training_args, model_args = parser.parse_args_and_config()
-    training_args.save_steps = 100  # Save checkpoint every 100 steps
     print('training_args:\n', training_args)
     print('script_args:\n', script_args)
     print('model_args:\n', model_args)

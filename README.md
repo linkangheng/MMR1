@@ -2,13 +2,20 @@
 
 ## ⚙️ **Environment**
 
-- Follow the instruction in https://github.com/FanqingM/R1-Multimodal-Journey
+- `git clone https://github.com/linkangheng/MMR1.git`
+- Manual installation of `lighteval`
+  ```bash
+  git clone https://github.com/huggingface/lighteval.git && cd lighteval && git checkout 4f381b352c0e467b5870a97d41cb66b487a2c503 && pip install ".[math]" && rm -rf lighteval
+  ```
+- `cd MMR1 && pip install -e ".[dev]"`
 - Update the transformers to the 4.49.0.dev0 to support the Qwen2.5_VL
 - `pip install vllm == 0.7.2 trl == 0.15.0.dev0` to support vLLM
 
 ## 🚨 **Notes**
 
 - You are supported to get the permission of `B:kanelin-jfs` and rlaunch your machine by `--mount=juicefs+s3://oss.i.shaipower.com/kanelin-jfs:/mnt/jfs-test` to access the dataset and the model.
+- Whenever `MMR1` updates, you may reinstall the `MMR1` by `cd MMR1 && pip install -e ".[dev]"`
+- If your dataset contains S3 paths, you may run `unset http_proxy https_proxy all_proxy no_proxy` before training.
 
 ## 📋 **ToDos**
 
@@ -22,10 +29,17 @@
 - [ ] Remove all the absolute path
 
 ## 📅 **Update Logs**
-
-### 2025.02.15
-- xxx
-``` python
+### 2025.02.16
+- Move all constants to constants.py
+- Add the `train_sample_size` to config the number of training samples
+- Add system_prompt_template, question_template, answer_template to set the system prompt, question template, answer template, if you want to use a custom template, you can design your own template in the `constants.py` and set the `system_prompt_template`, `question_template`, `answer_template` to your custom template name.
+- **Support json dataset as input**, we recommend you to use the `json` format to store your dataset, all you need to create a `json` file which contains dicts with keys `problem`, `solution`, `image`. e.g.
+```json
+{
+    "problem": <str>,
+    "solution": <int/str>,
+    "image": <image_path>
+}
 ```
 
 ## 🚀 **Quick Start**
