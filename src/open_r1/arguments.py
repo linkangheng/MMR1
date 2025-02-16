@@ -27,6 +27,22 @@ class GRPOScriptArguments(ScriptArguments):
         default="reasoning",
         metadata={"help": "Prompt template. Possible values: 'llava', 'qwen2', 'reasoning', 'grounding', 'ocr"},
     )
+    system_prompt_template: Optional[str] = field(
+        default="reasoning",
+        metadata={"help": "System prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
+    )
+    question_template: Optional[str] = field(
+        default="default",
+        metadata={"help": "Question template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
+    )
+    answer_template: Optional[str] = field(
+        default="default",
+        metadata={"help": "Answer template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
+    )
+    train_sample_size: Optional[int] = field(
+        default=None,
+        metadata={"help": "Train sample size. If None, use all samples."},
+    )
     use_kl: bool = field(
         default=True, 
         metadata={"help":"whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb"}
