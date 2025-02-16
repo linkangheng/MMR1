@@ -1,8 +1,3 @@
-GROUNDING_PROMPT = (
-    "When describing images, always specify object locations using bounding box coordinates [x1,y1,x2,y2]. "
-    "First analyze the image, then enclose your reasoning in <think> </think> tags and provide coordinates in <answer> </answer>."
-)
-
 LLAVA_PROMPT = (
     "A chat between a curious user and an artificial intelligence assistant. "
     "The assistant gives helpful, detailed, and polite answers to the user's questions."

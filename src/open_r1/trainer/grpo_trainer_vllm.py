@@ -15,14 +15,15 @@ import json
 import os
 import textwrap
 from collections import defaultdict
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Sized, Union
 from unittest.mock import patch
 
 import deepspeed
 import torch
-import torch.utils.data
 import transformers
-from accelerate.utils import broadcast_object_list, gather_object
+import torch.utils.data
+from torch.utils.data import Sampler
+from accelerate.utils import broadcast_object_list, gather, gather_object, set_seed
 from accelerate.utils.other import is_compiled_module
 from datasets import Dataset, IterableDataset
 from packaging import version
@@ -64,11 +65,48 @@ from trl.trainer.callbacks import SyncRefModelCallback
 RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
 TemperatureFunc = Union[Callable[[float, float], float]]
 
+class RepeatRandomSampler(Sampler):
+    """
+    Sampler that repeats the indices of a dataset N times.
+
+    Args:
+        data_source (`Sized`):
+            Dataset to sample from.
+        repeat_count (`int`):
+            Number of times to repeat each index.
+        seed (`Optional[int]`):
+            Random seed for reproducibility (only affects this sampler).
+    Example:
+    ```python
+    >>> sampler = RepeatRandomSampler(["a", "b", "c", "d"], repeat_count=2)
+    >>> list(sampler)
+    [2, 2, 0, 0, 3, 3, 1, 1]
+    ```
+    """
+
+    def __init__(self, data_source: Sized, repeat_count: int, seed: Optional[int] = None):
+        self.data_source = data_source
+        self.repeat_count = repeat_count
+        self.num_samples = len(data_source)
+        self.seed = seed
+        self.generator = torch.Generator()  # Create a local random generator
+        if seed is not None:
+            self.generator.manual_seed(seed)
+
+    def __iter__(self):
+        indexes = [
+            idx
+            for idx in torch.randperm(self.num_samples, generator=self.generator).tolist()
+            for _ in range(self.repeat_count)
+        ]
+        return iter(indexes)
+
+    def __len__(self):
+        return self.num_samples * self.repeat_count
 
 def set_requires_grad(parameters, requires_grad):
     for p in parameters:
         p.requires_grad = requires_grad
-
 
 class Qwen2VLGRPOTrainer(Trainer):
     """
@@ -347,6 +385,30 @@ class Qwen2VLGRPOTrainer(Trainer):
             if isinstance(reward_func, PreTrainedModel):
                 self.reward_funcs[i] = self.accelerator.prepare_model(reward_func, evaluation_mode=True)
 
+        num_processes = self.accelerator.num_processes
+        global_batch_size = args.per_device_train_batch_size * num_processes
+        possible_values = [n_gen for n_gen in range(2, global_batch_size + 1) if global_batch_size % n_gen == 0]
+        if self.num_generations not in possible_values:
+            raise ValueError(
+                f"The global train batch size ({num_processes} x {args.per_device_train_batch_size}) must be evenly "
+                f"divisible by the number of generations per prompt ({self.num_generations}). Given the current train "
+                f"batch size, the valid values for the number of generations are: {possible_values}."
+            )
+        if self.args.eval_strategy != "no":
+            global_batch_size = args.per_device_eval_batch_size * num_processes
+            possible_values = [n_gen for n_gen in range(2, global_batch_size + 1) if global_batch_size % n_gen == 0]
+            if self.num_generations not in possible_values:
+                raise ValueError(
+                    f"The global eval batch size ({num_processes} x {args.per_device_eval_batch_size}) must be evenly "
+                    f"divisible by the number of generations per prompt ({self.num_generations}). Given the current "
+                    f"eval batch size, the valid values for the number of generations are: {possible_values}."
+                )
+
+        # Ensure each process receives a unique seed to prevent duplicate completions when generating with
+        # transformers if num_generations exceeds per_device_train_batch_size. We could skip it if we use vLLM, but
+        # it's safer to set it in all cases.
+        set_seed(args.seed, device_specific=True)
+
         if self.accelerator.is_main_process:
             # load vllm
             if self.script_args.temperature_func is not None:
@@ -412,6 +474,21 @@ class Qwen2VLGRPOTrainer(Trainer):
         if self._signature_columns is None:
             self._signature_columns = ["prompt"]
 
+    # We need a custom sampler that samples the same prompt multiple times
+    def _get_train_sampler(self) -> Sampler:
+        # Returns a sampler that ensures each prompt is repeated across multiple processes. This guarantees that
+        # identical prompts are distributed to different GPUs, allowing rewards to be computed and normalized correctly
+        # within each prompt group. Using the same seed across processes ensures consistent prompt assignment,
+        # preventing discrepancies in group formation.
+        return RepeatRandomSampler(self.train_dataset, self.num_generations, seed=self.args.seed)
+
+    def _get_eval_sampler(self, eval_dataset) -> Sampler:
+        # Returns a sampler that ensures each prompt is repeated across multiple processes. This guarantees that
+        # identical prompts are distributed to different GPUs, allowing rewards to be computed and normalized correctly
+        # within each prompt group. Using the same seed across processes ensures consistent prompt assignment,
+        # preventing discrepancies in group formation.
+        return RepeatRandomSampler(eval_dataset, self.num_generations, seed=self.args.seed)
+    
     # Trainer "prepares" the inputs before calling `compute_loss`. It converts to tensor and move to device.
     # Since we preprocess the data in `compute_loss`, we need to override this method to skip this step.
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
@@ -438,9 +515,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             add_special_tokens=False,
         )
         prompt_inputs = super()._prepare_inputs(prompt_inputs)
-        # manual batch
-        batch_size = self.num_generations
-
+        batch_size = 1
         batched_inputs = {
             k: v.repeat(batch_size, *[1] * (v.dim() - 1)) if isinstance(v, torch.Tensor) else v
             for k, v in prompt_inputs.items()
@@ -571,8 +646,6 @@ class Qwen2VLGRPOTrainer(Trainer):
             completions = [[{"role": "assistant", "content": completion}] for completion in completions]
 
         # Compute the rewards
-        prompts = [prompt for prompt in prompts for _ in range(self.num_generations)]
-
         rewards_per_func = torch.zeros(len(prompts), len(self.reward_funcs), device=device)
         for i, (reward_func, reward_processing_class) in enumerate(
                 zip(self.reward_funcs, self.reward_processing_classes)
@@ -590,15 +663,14 @@ class Qwen2VLGRPOTrainer(Trainer):
                 with torch.inference_mode():
                     rewards_per_func[:, i] = reward_func(**reward_inputs).logits[:, 0]  # Shape (B*G,)
             else:
-                # Repeat all input columns (but "prompt" and "completion") to match the number of generations
-                reward_kwargs = {key: [] for key in inputs[0].keys() if key not in ["prompt", "completion"]}
-                for key in reward_kwargs:
-                    for example in inputs:
-                        # Repeat each value in the column for `num_generations` times
-                        reward_kwargs[key].extend([example[key]] * self.num_generations)
+                keys = [key for key in inputs[0] if key not in ["prompt", "completion"]]
+                reward_kwargs = {key: [example[key] for example in inputs] for key in keys}
                 output_reward_func = reward_func(prompts=prompts, completions=completions, **reward_kwargs)
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
-
+        
+        # Gather the reward per function: this part is crucial, because the rewards are normalized per group and the
+        # completions may be distributed across processes
+        rewards_per_func = gather(rewards_per_func)
         # Sum the rewards from all reward functions
         rewards = rewards_per_func.sum(dim=1)
         rewards = self.script_args.reward_scale*rewards
@@ -612,6 +684,12 @@ class Qwen2VLGRPOTrainer(Trainer):
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
 
+        process_slice = slice(
+            self.accelerator.process_index * len(prompts),
+            (self.accelerator.process_index + 1) * len(prompts),
+        )
+        advantages = advantages[process_slice]
+
         # x - x.detach() allows for preserving gradients from x
         per_token_loss = -torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
         if self.script_args.use_kl:
@@ -621,11 +699,12 @@ class Qwen2VLGRPOTrainer(Trainer):
         
         loss = ((per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
         # tot_ppl = per_token_logps.sum(dim=1) / completion_mask.sum(dim=1)
+        
         # Log the metrics
-        completion_length = self.accelerator.gather_for_metrics(completion_mask.sum(1)).float().mean().item()
+        completion_length = completion_mask.sum(1).float().mean().item()
         self._metrics["completion_length"].append(completion_length)
 
-        reward_per_func = self.accelerator.gather_for_metrics(rewards_per_func).mean(0)
+        reward_per_func = rewards_per_func.mean(0)
         for i, reward_func in enumerate(self.reward_funcs):
             if isinstance(reward_func, PreTrainedModel):
                 reward_func_name = reward_func.config._name_or_path.split("/")[-1]
@@ -719,11 +798,5 @@ class Qwen2VLGRPOTrainer(Trainer):
             paper_id="2402.03300",
         )
 
-        model_card.save(os.path.join(self.args.output_dir, "README.md"))
+        model_card.save(os.path.join(self.args.output_dir, "README.md")) 
 
-    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
-        if self.script_args.order_dataset == 'random':
-            return RandomSampler(self.train_dataset)
-        else:
-            return SequentialSampler(self.train_dataset)
-    

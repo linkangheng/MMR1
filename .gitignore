@@ -180,4 +180,5 @@ checkpoints/
 *.json
 *.jsonl
 
-# src/open_r1/prompts.py
+dirty_cache/
+local_scripts/eval/recore_wandb.py
