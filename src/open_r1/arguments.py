@@ -23,13 +23,9 @@ class GRPOScriptArguments(ScriptArguments):
         default=3136,
         metadata={"help": "Minimum number of pixels for the image"},
     )
-    prompt_template: Optional[str] = field(
-        default="reasoning",
-        metadata={"help": "Prompt template. Possible values: 'llava', 'qwen2', 'reasoning', 'grounding', 'ocr"},
-    )
     system_prompt_template: Optional[str] = field(
         default="reasoning",
-        metadata={"help": "System prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
+        metadata={"help": "System prompt template. Possible values: 'llava', 'qwen2', 'reasoning', 'grounding', 'ocr'"},
     )
     question_template: Optional[str] = field(
         default="default",

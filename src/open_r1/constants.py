@@ -6,13 +6,14 @@ reward_funcs_registry = {
     "count_format": format_reward,
     "perpo_format": perpo_format_reward,
     "perpo_iou": perpo_iou_reward,
-    "yjs": yjs_perpo_reward,
+    "yjs_grounding": yjs_perpo_reward,
+    "perpo_ocr": perpo_ocr_edit_distance_reward,
 }
 
 # SYSTEM PROMPTS
 GROUNDING_PROMPT = (
-    "When describing images, always specify object locations using bounding box coordinates [x1,y1,x2,y2]. "
-    "First analyze the image, then enclose your reasoning in <think> </think> tags and provide coordinates in <answer> </answer>."
+    "You are given an image and an object to box in text.You should output the bounding box of the object, which should only be a list of floats."
+    "Here is an example of what you should output: [x_min, y_min, x_max, y_max]. Please mind directly to output the list, do not add any other text."
 )
  
 LLAVA_PROMPT = (
@@ -31,11 +32,18 @@ COUNTING_REASONING_PROMPT = (
     "<think> reasoning process here </think><answer> answer here </answer>"
 )
 
+OCR_PROMPT = (
+    "You are given an image. You should ocr the image and output the text in the image without other output."
+)
+
+
 system_prompt_registry = {
     "default": QWEN2_PROMPT,
     "llava": LLAVA_PROMPT,
     "qwen": QWEN2_PROMPT,
     "counting_reasoning": COUNTING_REASONING_PROMPT,
+    "grounding": GROUNDING_PROMPT,
+    "ocr": OCR_PROMPT,
 }
 
 question_template_registry = {

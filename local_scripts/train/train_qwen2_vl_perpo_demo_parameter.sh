@@ -32,7 +32,7 @@ cp /data/MMR1/src/open_r1/arguments.py ${OUTPUT_DIR}/arguments.py
 cp /data/MMR1/src/open_r1/grpo_vllm.py ${OUTPUT_DIR}/grpo_vllm.py
 cp /data/MMR1/src/open_r1/trainer/grpo_trainer_vllm.py ${OUTPUT_DIR}/grpo_trainer_vllm.py
 cp /data/MMR1/src/open_r1/rewards.py ${OUTPUT_DIR}/rewards.py
-cp /data/MMR1/src/open_r1/prompts.py ${OUTPUT_DIR}/prompts.py
+cp /data/MMR1/src/open_r1/constants.py ${OUTPUT_DIR}/constants.py
 cp /data/MMR1/src/open_r1/temperature.py ${OUTPUT_DIR}/temperature.py
 
 
