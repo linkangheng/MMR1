@@ -45,7 +45,7 @@ reward_funcs_registry = {
     "perpo_format": perpo_format_reward,
     "perpo_iou": perpo_iou_reward,
     "yjs_grounding": yjs_perpo_reward,
-    "yjs_ocr": yjs_perpo_ocr_reward,
+    "perpo_ocr": perpo_ocr_edit_distance_reward,
 }
 
 prompt_registry = {
@@ -92,7 +92,7 @@ def main(script_args, training_args, model_args):
         if "image" not in dataset[script_args.dataset_train_split].features:
             raise ValueError("Some bugs happens when loading the dataset.. Plase check the hf-dataset is correct created.")
     except:
-        dataset = load_from_disk(script_args.dataset_name+order_dataset_registry[script_args.order_dataset])
+        dataset = load_from_disk(script_args.dataset_name)
 
     # Format into conversation
     system_prompt = prompt_registry[script_args.prompt_template]

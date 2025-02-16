@@ -160,7 +160,7 @@ def yjs_perpo_reward(completions, solution, **kwargs):
             rewards.append(-1.0)
     return rewards
 
-def yjs_perpo_ocr_reward(completions, solution):
+def perpo_ocr_edit_distance_reward(completions, solution, **kwargs):
     def contain_chinese_string(text):
         chinese_pattern = re.compile(r'[\u4e00-\u9fa5]')
         return bool(chinese_pattern.search(text))
