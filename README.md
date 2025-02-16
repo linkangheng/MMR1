@@ -26,23 +26,20 @@
 #### add some hyperparameters
 you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task.
 
--use_kl: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
+`-use_kl`: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
 
--kl_approximator: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), 
+`-kl_approximator`: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), 
 kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, 
 your value of sync_ref_model, ref_model_mixup_alpha and ref_model_sync_steps will be invalid, they are all set the same as kimi1.5)
 
--entropy_reg: whether to use entropy regularization while training. For discriminative tasks like grounding, ocr and counting, we expect entropy to decrease.
+`-entropy_reg`: whether to use entropy regularization while training. For discriminative tasks like grounding, ocr and counting, we expect entropy to decrease.
 For literary creation task, we expect entropy to increase. this can be controlled by entropy_weight.
 
--entropy_weight: the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease.
+`-entropy_weight`: the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease.
 
--temperature_func: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "const"
+`-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "const"
 
--order_dataset： which order to use.
-
-### 2025.02.15
-- xxx
+`-order_dataset`： which order to use.
 ``` python
 ```
 
