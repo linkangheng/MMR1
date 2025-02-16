@@ -40,7 +40,7 @@
     "solution": <int/str>,
     "image": <image_path>
 }
-
+```
 ### 2025.02.16
 #### add some hyperparameters
 you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
