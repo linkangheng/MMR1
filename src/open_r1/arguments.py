@@ -29,46 +29,37 @@ class GRPOScriptArguments(ScriptArguments):
     )
     use_kl: bool = field(
         default=True, 
-        metadata={"help":"whether to use kl with ref model"}
+        metadata={"help":"whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb"}
     )
     kl_approximator: str = field(
         default="k3", 
-        metadata={"help": "which kl compute to use, k1, k3, or kimikl"}
-    )
-    reward_rule: int = field(
-        default=1, 
-        metadata={"help": "reward rule for training"}
+        metadata={"help": "which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, your value of sync_ref_model, ref_model_mixup_alpha and ref_model_sync_steps will be invalid, they are all set the same as kimi1.5)"}
     )
     reward_scale: float = field(
         default=1, 
         metadata={"help": "reward scale of all rewards"}
     )
-    reward_baseline: float = field(
-        default=0, 
-        metadata={"help": "reward baseline for training"}
-    )
-    train_vision: bool = field(
-        default=False, 
-        metadata={"help":"whether to train vision encoder"}
-    )
     entropy_reg : bool = field(
         default=False, 
-        metadata={"help": "whether to use entropy reg"}
+        metadata={"help": "whether to use entropy regularization while training. For discriminative tasks like grounding, ocr and counting, we expect entropy to decrease. For literary creation task, we expect entropy to increase. this can be controlled by entropy_weight."}
     )
     entropy_weight: float = field(
         default=0.01, 
-        metadata={"help": "entropy_reg_loss weight"}
+        metadata={"help": "the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease."}
     )
     temperature_func: str = field(
         default="linear", 
-        metadata={"help":"which temperature func to use"}
+        metadata={"help":"which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is 'linear' and 'constant'"}
     )
     temperature_begin: float = field(
-        default=0.1
+        default=0.1, 
+        metadata={"help": "the beginning temperature for training(optional for linear temperature)"}
     )
     temperature_end: float = field(
-        default=1.0
+        default=1.0, 
+        metadata={"help": "the ending temperature for training(optional for linear temperature)"}
     )
-    order_dataset: str = field(
-        default='random'
+    temperature_constant: float = field(
+        default=1.0, 
+        metadata={"help": "the constant temperature for training(optional for constant temperature)"}
     )

@@ -362,11 +362,6 @@ class Qwen2VLGRPOTrainer(Trainer):
             callbacks=callbacks,
             optimizers=optimizers,
         )
-        if self.script_args.temperature_func is not None:
-            total_step = len(self.train_dataset) // args.train_batch_size
-            self.temperature_func = temperature_func(self.script_args, total_step)
-        else:
-            self.temperature = 1.0
         # Gradient accumulation requires scaled loss. Normally, loss scaling in the parent class depends on whether the
         # model accepts loss-related kwargs. Since we compute our own loss, this check is irrelevant. We set
         # self.model_accepts_loss_kwargs to False to enable scaling.
