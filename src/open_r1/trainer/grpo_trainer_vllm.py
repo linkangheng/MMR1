@@ -539,6 +539,7 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         prompt_length = batched_inputs["input_ids"].size(1)
         per_token_logps = per_token_logps[:, prompt_length - 1:]
+        per_token_entropys = per_token_entropys[:, prompt_length - 1:]
         ppl = -per_token_logps.sum(dim=-1)
         with torch.inference_mode():
             if self.ref_model is not None:
@@ -547,6 +548,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 with self.accelerator.unwrap_model(model).disable_adapter():
                     ref_per_token_logps, ref_per_token_entropys = get_per_token_logps(model, **batched_inputs1)
         ref_per_token_logps = ref_per_token_logps[:, prompt_length - 1:]
+        ref_per_token_entropys = ref_per_token_entropys[:, prompt_length - 1:]
         ref_ppl = -ref_per_token_logps.sum(dim=-1)
 
         # Compute the KL divergence between the model and the reference model
