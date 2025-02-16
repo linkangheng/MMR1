@@ -40,6 +40,33 @@
     "solution": <int/str>,
     "image": <image_path>
 }
+
+### 2025.02.16
+#### add some hyperparameters
+you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
+
+`-use_kl`: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
+
+`-kl_approximator`: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), 
+kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, 
+your value of sync_ref_model, ref_model_mixup_alpha and ref_model_sync_steps will be invalid, they are all set the same as kimi1.5)
+
+`-entropy_reg`: whether to use entropy regularization while training. For discriminative tasks like grounding, ocr and counting, we expect entropy to decrease.
+For literary creation task, we expect entropy to increase. this can be controlled by entropy_weight.
+
+`-entropy_weight`: the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease.
+
+`-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "constant"
+
+`-learning_rate`: the laerning_rate for begining training. The learning rate will end to 0.
+
+`-sync_ref_model`: whether to update ref modeel while training.
+
+`-ref_model_mixup_alpha`: the alpha to mix policy model and ref moodel: `π_ref = α * π_θ + (1 - α) * π_ref_prev`. In kimi1.5, they set the value 1.0
+
+`-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
+
+``` python
 ```
 
 ## 🚀 **Quick Start**
