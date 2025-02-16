@@ -39,7 +39,7 @@ For literary creation task, we expect entropy to increase. this can be controlle
 
 `-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "const"
 
-`-order_dataset`： which order to use.
+`-order_dataset`： which order to use. We provide "llava1.5-7b_easy2diff", "random", "qwen2-2b_easy2diff" for training. The truly dataset name used in training is args.dataset_name+args.order_dataset.
 ``` python
 ```
 
