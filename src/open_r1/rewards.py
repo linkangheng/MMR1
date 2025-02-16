@@ -160,7 +160,7 @@ def yjs_perpo_reward(completions, solution, **kwargs):
             rewards.append(-1.0)
     return rewards
 
-def perpo_ocr_edit_distance_reward(completions, solution, **kwargs):
+def perpo_ocr_edit_distance_reward(prompts, completions, solution, **kwargs):
     def contain_chinese_string(text):
         chinese_pattern = re.compile(r'[\u4e00-\u9fa5]')
         return bool(chinese_pattern.search(text))
@@ -205,9 +205,20 @@ def perpo_ocr_edit_distance_reward(completions, solution, **kwargs):
                 rewards.append(0.0)
             else:
                 # Normalize by max length and convert to reward between 0 and 1
-                normalized_dist = 1 - (edit_dist / max_len)
+                normalized_dist = 1 - edit_dist
                 rewards.append(max(0.0, normalized_dist))
-        except:
+        except Exception as e:
+            print(f"Error in perpo_ocr_edit_distance_reward: {e}")
+            with open('./perpo_ocr_edit_distance_reward_error.txt', "a") as f:
+                try:
+                    f.write(f"Prompt: {prompts}\n")
+                    f.write(f"Content: {completion}\n")
+                    f.write(f"Solution: {sol}\n")
+                except:
+                    f.write("writeing error")
+            print(f"Error in perpo_ocr_edit_distance_reward: {completion} {sol}")
             rewards.append(0.0)
+
+    
             
     return rewards

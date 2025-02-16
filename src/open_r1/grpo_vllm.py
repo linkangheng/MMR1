@@ -77,6 +77,7 @@ def main(script_args, training_args, model_args):
         training_args.sync_ref_model = True
         training_args.ref_model_mixup_alpha = 1.0
         training_args.ref_model_sync_steps = 1
+        script_args.use_kl = True
 
     
     # save args to output_dir

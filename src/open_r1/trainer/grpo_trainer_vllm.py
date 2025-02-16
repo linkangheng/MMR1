@@ -677,7 +677,10 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Normalize the rewards to compute the advantages
         mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
-        advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+        if self.script_args.kl_approximator == 'fullkimi':
+            advantages = rewards - mean_grouped_rewards
+        else:   
+            advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
 
         process_slice = slice(
             self.accelerator.process_index * len(prompts),
@@ -686,7 +689,10 @@ class Qwen2VLGRPOTrainer(Trainer):
         advantages = advantages[process_slice]
 
         # x - x.detach() allows for preserving gradients from x
-        per_token_loss = -torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
+        if self.script_args.kl_approximator == 'fullkimi':
+            per_token_loss = -torch.exp(per_token_logps) * advantages.unsqueeze(1)
+        else:
+            per_token_loss = -torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
         if self.script_args.use_kl:
             per_token_loss += self.beta * per_token_kl
         if self.script_args.entropy_reg:
