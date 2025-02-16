@@ -326,8 +326,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         )
         if self.script_args.temperature_func is not None:
             total_step = len(self.train_dataset) // args.train_batch_size
-            if self.script_args.temperature_func == 'linear':
-                self.temperature_func = temperature_func(self.script_args.temperature_begin, self.script_args.temperature_end, total_step)
+            self.temperature_func = temperature_func(self.script_args, total_step)
         else:
             self.temperature = 1.0
         # Gradient accumulation requires scaled loss. Normally, loss scaling in the parent class depends on whether the
@@ -352,8 +351,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             # load vllm
             if self.script_args.temperature_func is not None:
                 total_step = len(self.train_dataset) // args.train_batch_size
-                if self.script_args.temperature_func == 'linear':
-                    self.temperature_func = temperature_func(self.script_args.temperature_begin, self.script_args.temperature_end, total_step)
+                self.temperature_func = temperature_func(self.script_args, total_step)
             else:
                 self.temperature = 1.0
             vllm_device = "auto"
@@ -540,7 +538,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         prompt_length = batched_inputs["input_ids"].size(1)
         per_token_logps = per_token_logps[:, prompt_length - 1:]
         per_token_entropys = per_token_entropys[:, prompt_length - 1:]
-        ppl = -per_token_logps.sum(dim=-1)
+        ppl = -((per_token_logps * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean() 
         with torch.inference_mode():
             if self.ref_model is not None:
                 ref_per_token_logps, ref_per_token_entropys = get_per_token_logps(self.ref_model, **batched_inputs1)
@@ -549,20 +547,23 @@ class Qwen2VLGRPOTrainer(Trainer):
                     ref_per_token_logps, ref_per_token_entropys = get_per_token_logps(model, **batched_inputs1)
         ref_per_token_logps = ref_per_token_logps[:, prompt_length - 1:]
         ref_per_token_entropys = ref_per_token_entropys[:, prompt_length - 1:]
-        ref_ppl = -ref_per_token_logps.sum(dim=-1)
+        ref_ppl = -((ref_per_token_logps * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
 
         # Compute the KL divergence between the model and the reference model
+        k1 = per_token_logps - ref_per_token_logps
+        k3 = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+        kimi = 0.5*(per_token_logps - ref_per_token_logps)**2
         if self.script_args.kl_approximator == 'k3':
-            per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+            per_token_kl = k3
         elif self.script_args.kl_approximator == 'k1':
-            per_token_kl = per_token_logps - ref_per_token_logps
+            per_token_kl = k1
         elif self.script_args.kl_approximator in ['kimikl', 'fullkimi']:
-            per_token_kl = 0.5*(per_token_logps - ref_per_token_logps)**2
+            per_token_kl = kimi
 
 
         # Compute the entropy reg loss
-        entropy_loss = -per_token_entropys.mean()
-        ref_entropy_loss = -ref_per_token_entropys.mean()
+        entropy_loss = -per_token_entropys
+        ref_entropy_loss = -ref_per_token_entropys
 
         # Decode the generated completions
         completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
@@ -636,12 +637,17 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
 
-        mean_kl = ((per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
-        self._metrics["kl"].append(self.accelerator.gather_for_metrics(mean_kl).mean().item())
-        
-        self._metrics['entropy_loss'].append(self.accelerator.gather_for_metrics(entropy_loss).mean().item())
-        self._metrics['delta_ref_entropy_loss'].append(self.accelerator.gather_for_metrics(entropy_loss-ref_entropy_loss).mean().item())
-        self._metrics['ppl'].append(self.accelerator.gather_for_metrics(ppl.mean()).mean().item())
+        mean_k1_kl = ((k1 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics["k1_kl"].append(self.accelerator.gather_for_metrics(mean_k1_kl).mean().item())
+        mean_k3_kl = ((k3 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics["k3_kl"].append(self.accelerator.gather_for_metrics(mean_k3_kl).mean().item())
+        mean_kimi_kl = ((kimi * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics["kimi_kl"].append(self.accelerator.gather_for_metrics(mean_kimi_kl).mean().item())
+        mean_entropy_loss = ((entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()   
+        self._metrics['entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss).mean().item())
+        mean_ref_entropy_loss = ((ref_entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics['delta_ref_entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss-mean_ref_entropy_loss).mean().item())
+        self._metrics['ppl'].append(self.accelerator.gather_for_metrics(ppl).mean().item())
         self._metrics['delta_ref_ppl'].append(self.accelerator.gather_for_metrics(ppl-ref_ppl).mean().item())
         if self.accelerator.is_main_process:
             self._metrics["temperature"].append(self.sampling_params.temperature)

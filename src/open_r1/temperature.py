@@ -1,11 +1,13 @@
-def temperature_linear(begin, end, total_step):
-    temperature = begin
+def temperature_linear(args, total_step):
+    temperature = args.temperature_begin
     while True:
-        temperature += (end-begin)/total_step
+        temperature += (args.temperature_end-args.temperature_begin)/total_step
         yield temperature
 
-def temperature_const(const):
-    yield const
+def temperature_constant(args, total_step):
+    temperature = args.temperature_constant
+    while True:
+        yield temperature
 
 
 

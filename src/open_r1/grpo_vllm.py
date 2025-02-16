@@ -58,7 +58,7 @@ prompt_registry = {
 
 temperature_func_registry = {
     "linear": temperature_linear, 
-    "const": temperature_const, 
+    "constant": temperature_constant, 
 }
 
 order_dataset_registry = {
