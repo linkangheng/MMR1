@@ -2,13 +2,20 @@
 
 ## ⚙️ **Environment**
 
-- Follow the instruction in https://github.com/FanqingM/R1-Multimodal-Journey
+- `git clone https://github.com/linkangheng/MMR1.git`
+- Manual installation of `lighteval`
+  ```bash
+  git clone https://github.com/huggingface/lighteval.git && cd lighteval && git checkout 4f381b352c0e467b5870a97d41cb66b487a2c503 && pip install ".[math]" && rm -rf lighteval
+  ```
+- `cd MMR1 && pip install -e ".[dev]"`
 - Update the transformers to the 4.49.0.dev0 to support the Qwen2.5_VL
 - `pip install vllm == 0.7.2 trl == 0.15.0.dev0` to support vLLM
 
 ## 🚨 **Notes**
 
 - You are supported to get the permission of `B:kanelin-jfs` and rlaunch your machine by `--mount=juicefs+s3://oss.i.shaipower.com/kanelin-jfs:/mnt/jfs-test` to access the dataset and the model.
+- Whenever `MMR1` updates, you may reinstall the `MMR1` by `cd MMR1 && pip install -e ".[dev]"`
+- If your dataset contains S3 paths, you may run `unset http_proxy https_proxy all_proxy no_proxy` before training.
 
 ## 📋 **ToDos**
 
@@ -23,6 +30,18 @@
 
 ## 📅 **Update Logs**
 ### 2025.02.16
+- Move all constants to constants.py
+- Add the `train_sample_size` to config the number of training samples
+- Add system_prompt_template, question_template, answer_template to set the system prompt, question template, answer template, if you want to use a custom template, you can design your own template in the `constants.py` and set the `system_prompt_template`, `question_template`, `answer_template` to your custom template name.
+- **Support json dataset as input**, we recommend you to use the `json` format to store your dataset, all you need to create a `json` file which contains dicts with keys `problem`, `solution`, `image`. e.g.
+```json
+{
+    "problem": <str>,
+    "solution": <int/str>,
+    "image": <image_path>
+}
+```
+### 2025.02.17
 #### add some hyperparameters
 you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
 
@@ -39,8 +58,6 @@ For literary creation task, we expect entropy to increase. this can be controlle
 
 `-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "constant"
 
-`-order_dataset`： which order to use. We provide "llava1.5-7b_easy2diff", "random", "qwen2-2b_easy2diff" for training. The truly dataset name used in training is `args.dataset_name+args.order_dataset`.
-
 `-learning_rate`: the laerning_rate for begining training. The learning rate will end to 0.
 
 `-sync_ref_model`: whether to update ref modeel while training.
@@ -48,10 +65,6 @@ For literary creation task, we expect entropy to increase. this can be controlle
 `-ref_model_mixup_alpha`: the alpha to mix policy model and ref moodel: `π_ref = α * π_θ + (1 - α) * π_ref_prev`. In kimi1.5, they set the value 1.0
 
 `-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
-
-`-num_generations`: the rollouts number for each sample. also the group size in grpo.
-
-
 
 ``` python
 ```
