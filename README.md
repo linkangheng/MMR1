@@ -24,7 +24,7 @@
 ## 📅 **Update Logs**
 ### 2025.02.16
 #### add some hyperparameters
-you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task.
+you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
 
 `-use_kl`: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
 
@@ -39,7 +39,15 @@ For literary creation task, we expect entropy to increase. this can be controlle
 
 `-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "const"
 
-`-order_dataset`： which order to use. We provide "llava1.5-7b_easy2diff", "random", "qwen2-2b_easy2diff" for training. The truly dataset name used in training is args.dataset_name+args.order_dataset.
+`-order_dataset`： which order to use. We provide "llava1.5-7b_easy2diff", "random", "qwen2-2b_easy2diff" for training. The truly dataset name used in training is `args.dataset_name+args.order_dataset`.
+`-learning_rate`: the laerning_rate for begining training. The learning rate will end to 0.
+`-sync_ref_model`: whether to update ref modeel while training.
+`-ref_model_mixup_alpha`: the alpha to mix policy model and ref moodel: `π_ref = α * π_θ + (1 - α) * π_ref_prev`. In kimi1.5, they set the value 1.0
+`-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
+`-num_generations`: the rollouts number for each sample. also the group size in grpo.
+
+
+
 ``` python
 ```
 
