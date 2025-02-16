@@ -9,6 +9,7 @@ OUTPUT_DIR="/mnt/jfs-test/checkpoints/mmr1/debug/qwen2-vl-2b_vllm_lucas_counting
 RUN_NAME="qwen2-vl-2b_vllm_lucas_counting_defualt_settings"
 export LOG_PATH="${OUTPUT_DIR}/train.log"
 export WANDB_PROJECT="MMR1"
+
 torchrun \
     --nproc_per_node="7" \
     --nnodes="${NNODES}" \
@@ -19,12 +20,12 @@ torchrun \
     --deepspeed local_scripts/zero3.json \
     --output_dir "${OUTPUT_DIR}" \
     --model_name_or_path /mnt/jfs-test/models/Qwen2-VL-2B-Instruct \
-    --dataset_name /mnt/jfs-test/data/lucas_counting/count-min20box-763043 \
+    --dataset_name /mnt/jfs-test/data/lucas_counting/molmo/jsons/lucas_counting_molmo_1892054.json \
     --max_prompt_length 2048 \
-    --num_generations 8 \
+    --num_generations 7 \
     --max_completion_length 768 \
-    --per_device_train_batch_size 1 \
-    --gradient_accumulation_steps 1 \
+    --per_device_train_batch_size 7 \
+    --gradient_accumulation_steps 2 \
     --logging_steps 1 \
     --bf16 \
     --gradient_checkpointing true \
@@ -33,7 +34,11 @@ torchrun \
     --num_train_epochs 1 \
     --run_name ${RUN_NAME} \
     --save_steps 100 \
-    --report_to wandb \
+    --report_to none \
     --reward_funcs "count_acc" "count_format" \
-    --save_only_model true
+    --save_only_model true \
+    --train_sample_size 1000 \
+    --question_template "counting_reasoning" \
+    --answer_template "counting_reasoning" \
+    --system_prompt "counting_reasoning"
     # >> train.log 2>&1

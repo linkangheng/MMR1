@@ -4,10 +4,10 @@ NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
 MASTER_PORT=12345
-cd /data/ICCV2025/PaR/MMR1
-ROLLOUT_SIZE=$1
+ROLLOUT_SIZE=2
 OUTPUT_DIR="/mnt/jfs-test/checkpoints/mmr1/debug/qwen2-vl-2b_vllm_perpo_roll${ROLLOUT_SIZE}"
 RUN_NAME="qwen2-vl-2b_vllm_perpo_roll${ROLLOUT_SIZE}"
+
 export LOG_PATH="${OUTPUT_DIR}/train.log"
 export WANDB_PROJECT="MMR1"
 torchrun \
@@ -24,7 +24,7 @@ torchrun \
     --max_prompt_length 2048 \
     --num_generations ${ROLLOUT_SIZE} \
     --max_completion_length 768 \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 7 \
     --gradient_accumulation_steps 2 \
     --logging_steps 1 \
     --bf16 \
@@ -36,6 +36,6 @@ torchrun \
     --save_steps 100 \
     --report_to wandb \
     --reward_funcs "yjs" \
-    --prompt_template "qwen" \
+    --system_prompt_template "qwen" \
     --save_only_model true
     # >> train.log 2>&1

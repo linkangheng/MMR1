@@ -91,11 +91,6 @@ def add_hooks(model: "DeepSpeedEngine") -> None:
         optimizer_offload = model.optimizer
     optimizer_offload._register_hooks_recursively(optimizer_offload.module)
 
-
-
-
-
-
 def pad(tensors: list[torch.Tensor], padding_value: int = 0, padding_side: str = "right") -> torch.Tensor:
     """
     Pads a list of tensors to the same shape along the first dimension.
@@ -143,5 +138,3 @@ def pad(tensors: list[torch.Tensor], padding_value: int = 0, padding_side: str =
         output[i][slices] = t
 
     return output
-
-
