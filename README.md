@@ -25,13 +25,13 @@
 ### 2025.02.16
 #### add some hyperparameters
 you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task.
-```
-use_kl: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
-kl_approximator: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), \
-kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, \
+
+-use_kl: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
+
+-kl_approximator: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), 
+kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, 
 your value of sync_ref_model, ref_model_mixup_alpha and ref_model_sync_steps will be invalid, they are all set the same as kimi1.5)
 
-```
 
 ### 2025.02.15
 - xxx
