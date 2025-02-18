@@ -48,6 +48,7 @@ def accuracy_reward(completions, solution, **kwargs):
                 f.write("writeing error")
     return rewards
 
+
 def format_reward(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
     pattern = r"^<think>.*?</think><answer>.*?</answer>$"

@@ -182,3 +182,8 @@ checkpoints/
 
 dirty_cache/
 local_scripts/eval/recore_wandb.py
+local_scripts/train/lucas_counting
+local_scripts/eval/report
+local_scripts/lazy
+local_scripts/data/mask_datas
+eval/evaluate_counting_bon.py
