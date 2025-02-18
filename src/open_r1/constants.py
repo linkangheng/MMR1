@@ -6,7 +6,7 @@ reward_funcs_registry = {
     "count_format": format_reward,
     "perpo_format": perpo_format_reward,
     "perpo_iou": perpo_iou_reward,
-    "yjs": yjs_perpo_reward,
+    "answer_format": answer_format_reward,
 }
 
 # SYSTEM PROMPTS
@@ -31,19 +31,27 @@ COUNTING_REASONING_PROMPT = (
     "<think> reasoning process here </think><answer> answer here </answer>"
 )
 
+COUNTING_PROMPT = (
+    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The direct answer is enclosed within <answer> </answer> tags, i.e., "
+    "<answer> answer here </answer>"
+)
+
 system_prompt_registry = {
     "default": QWEN2_PROMPT,
     "llava": LLAVA_PROMPT,
     "qwen": QWEN2_PROMPT,
     "counting_reasoning": COUNTING_REASONING_PROMPT,
+    "counting": COUNTING_PROMPT,
 }
 
 question_template_registry = {
     "default": "{question}",
     "counting_reasoning": "{question} Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags.",
+    "counting": "{question} Output the final answer (number) in <answer> </answer> tags.",
 }
  
 answer_template_registry = {
     "default": "{answer}",
     "counting_reasoning": "<answer> {answer} </answer>",
+    "counting": "<answer> {answer} </answer>",
 }

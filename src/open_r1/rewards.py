@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 from math_verify import parse, verify
 
-
 def accuracy_reward(completions, solution, **kwargs):
     """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
     contents = [completion[0]["content"] for completion in completions]
@@ -49,10 +48,16 @@ def accuracy_reward(completions, solution, **kwargs):
                 f.write("writeing error")
     return rewards
 
-
 def format_reward(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
     pattern = r"^<think>.*?</think><answer>.*?</answer>$"
+    completion_contents = [completion[0]["content"] for completion in completions]
+    matches = [re.match(pattern, content) for content in completion_contents]
+    return [1.0 if match else 0.0 for match in matches]
+
+def answer_format_reward(completions, **kwargs):
+    """Reward function that checks if the completion is a valid answer."""
+    pattern = r"^<answer>.*?</answer>$"
     completion_contents = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, content) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
