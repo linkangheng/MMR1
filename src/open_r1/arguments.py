@@ -75,3 +75,16 @@ class GRPOScriptArguments(ScriptArguments):
         default=1.0, 
         metadata={"help": "the constant temperature for training(optional for constant temperature)"}
     )
+    format_random: bool = field(
+        default=False, 
+        metadata={"help": "whether to add random in format reward"}
+    )
+    origin_pg: bool = field(
+        default=False, 
+        metadata={"help": "whether to use origin pg methods instead of mean advantage"}
+    )
+    no_mean_for_same_reward: bool = field(
+        default=False, 
+        metadata={"help": "whether to not minus  reward mean if same reward"}
+    )
+

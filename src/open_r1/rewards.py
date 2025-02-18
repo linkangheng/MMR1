@@ -64,6 +64,7 @@ def format_reward(completions, **kwargs):
 def perpo_format_reward(completions, **kwargs):
     """Reward function that checks if the completion follow the perpo format."""
     matches = []
+    
     for completion in completions:
         try:
             rst = eval(completion.strip())
@@ -155,7 +156,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
                 rewards.append(-1.0)
                 continue
             iou = compute_iou(gt_list, model_answer_list)
-            rewards.append(iou**2)
+            if iou <= 0:
+                rewards.append(iou)
+            else:
+                rewards.append(iou**2)
         except:
             rewards.append(-1.0)
     return rewards
