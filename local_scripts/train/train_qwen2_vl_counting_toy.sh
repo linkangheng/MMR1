@@ -4,8 +4,7 @@ NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
 MASTER_PORT=12345
-cd /data/ICCV2025/PaR/R1-Multimodal-Journey
-OUTPUT_DIR="/mnt/jfs-test/checkpoints/par/duidian/r1v_qwen2-vl-2b_vllm_"
+OUTPUT_DIR="<checkpoint path>"
 export LOG_PATH="${OUTPUT_DIR}/train.log"
 torchrun \
     --nproc_per_node="7" \
