@@ -193,3 +193,5 @@ train_qwen22b_perpo-ocr.sh
 train_qwen22b_perpo.sh
 train_qwen22b_perpo_ocr.sh
 local_scripts/train/train_llava1.5-7b_perpo_demo_parameter.sh
+test.py
+train_grounding.sh

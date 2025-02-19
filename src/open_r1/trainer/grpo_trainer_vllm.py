@@ -662,7 +662,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 keys = [key for key in inputs[0] if key not in ["prompt", "completion"]]
                 reward_kwargs = {key: [example[key] for example in inputs] for key in keys}
                 output_reward_func = reward_func(prompts=prompts, completions=completions, **reward_kwargs)
-                if self.script_args.debug:
+                if self.script_args.debug_write_to_file:
                     save_dict_to_json({"completions": [completion[0]["content"] for completion in completions],"output_reward_func": output_reward_func, "solution": reward_kwargs["solution"]}, "debug.json")
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
         
@@ -686,7 +686,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             std_mask  = torch.tensor([1.0 if std.item() != 0 else 0.0 for std in std_grouped_rewards], device=self.accelerator.device)
             advantages = (rewards - mean_grouped_rewards*std_mask) / (std_grouped_rewards + 1e-4)
             advantages = torch.clamp(advantages, min=-1.0, max=1.0)
-            if self.script_args.debug:
+            if self.args.debug:
                 save_dict_to_json({"advantages": advantages.tolist(), "std_mask": std_mask.tolist(), "mean_grouped_rewards": mean_grouped_rewards.tolist(), "std_grouped_rewards": std_grouped_rewards.tolist(), "rewards": rewards.tolist()}, "debug_advantages.json")
         else:
             if self.script_args.kl_approximator == 'fullkimi':

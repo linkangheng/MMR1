@@ -87,4 +87,8 @@ class GRPOScriptArguments(ScriptArguments):
         default=False, 
         metadata={"help": "whether to not minus  reward mean if same reward"}
     )
+    debug_write_to_file: bool = field(
+        default=False, 
+        metadata={"help": "whether to write debug info to file"}
+    )
 

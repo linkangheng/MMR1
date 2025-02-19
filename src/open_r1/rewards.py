@@ -211,6 +211,7 @@ def perpo_ocr_edit_distance_reward(prompts, completions, solution, **kwargs):
                 # Normalize by max length and convert to reward between 0 and 1
                 normalized_dist = 1 - edit_dist
                 rewards.append(max(0.0, normalized_dist))
+
         except Exception as e:
             print(f"Error in perpo_ocr_edit_distance_reward: {e}")
             with open('./perpo_ocr_edit_distance_reward_error.txt', "a") as f:
