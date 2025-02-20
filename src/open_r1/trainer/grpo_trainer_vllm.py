@@ -681,7 +681,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         if self.script_args.origin_pg:
-            advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+            advantages = rewards
         elif self.script_args.no_mean_for_same_reward:
             std_mask  = torch.tensor([1.0 if std.item() != 0 else 0.0 for std in std_grouped_rewards], device=self.accelerator.device)
             advantages = (rewards - mean_grouped_rewards*std_mask) / (std_grouped_rewards + 1e-4)
