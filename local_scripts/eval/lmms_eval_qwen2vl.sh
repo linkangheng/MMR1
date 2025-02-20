@@ -51,7 +51,7 @@ model_checkpoint="<MODEL_CHECKPOINT_PATH>"
 echo "MODEL_BASENAME: ${MODEL_BASENAME}"
 cd <LMMS_EVAL_DIR>
 
-/data/miniconda3/envs/lmmse/bin/python -m accelerate.commands.launch --num_processes=8 --main_process_port=12345 lmms_eval \
+python3 -m accelerate.commands.launch --num_processes=8 --main_process_port=12345 lmms_eval \
     --model qwen2_vl \
     --model_args=pretrained=${model_checkpoint},max_pixels=2359296 \
     --tasks ${TASKS} \

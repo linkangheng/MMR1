@@ -142,7 +142,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
         return iou
 
     rewards = []
-    contents = [completion[0]["content"] for completion in completions]
+    if 'content' in completions[0][0]:
+        contents = [completion[0]["content"] for completion in completions]
+    else:
+        contents = completions
     for completion, sol in zip(contents, solution):
         try:
             gt_list = eval(sol.strip())
