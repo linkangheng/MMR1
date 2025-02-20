@@ -196,3 +196,4 @@ local_scripts/train/train_llava1.5-7b_perpo_demo_parameter.sh
 test.py
 train_grounding.sh
 kill.sh
+inference/
