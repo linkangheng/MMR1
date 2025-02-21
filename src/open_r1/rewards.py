@@ -3,6 +3,10 @@ import os
 import time
 from datetime import datetime
 from math_verify import parse, verify
+import nltk
+import jieba
+from nltk.translate import meteor_score
+from nltk.metrics import precision, recall, f_measure
 
 
 def accuracy_reward(completions, solution, **kwargs):
@@ -60,6 +64,7 @@ def format_reward(completions, **kwargs):
 def perpo_format_reward(completions, **kwargs):
     """Reward function that checks if the completion follow the perpo format."""
     matches = []
+    
     for completion in completions:
         try:
             rst = eval(completion.strip())
@@ -137,7 +142,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
         return iou
 
     rewards = []
-    contents = [completion[0]["content"] for completion in completions]
+    if 'content' in completions[0][0]:
+        contents = [completion[0]["content"] for completion in completions]
+    else:
+        contents = completions
     for completion, sol in zip(contents, solution):
         try:
             gt_list = eval(sol.strip())
@@ -151,7 +159,74 @@ def yjs_perpo_reward(completions, solution, **kwargs):
                 rewards.append(-1.0)
                 continue
             iou = compute_iou(gt_list, model_answer_list)
-            rewards.append(iou**2)
+            if iou <= 0:
+                rewards.append(iou)
+            else:
+                rewards.append(iou**2)
         except:
             rewards.append(-1.0)
+    return rewards
+
+def perpo_ocr_edit_distance_reward(prompts, completions, solution, **kwargs):
+    def contain_chinese_string(text):
+        chinese_pattern = re.compile(r'[\u4e00-\u9fa5]')
+        return bool(chinese_pattern.search(text))
+    def cal_per_metrics(pred, gt):
+
+        metrics = {}
+
+        if contain_chinese_string(gt) or contain_chinese_string(pred):
+            reference = jieba.lcut(gt)
+            hypothesis = jieba.lcut(pred)
+        else:
+            reference = gt.split()
+            hypothesis = pred.split()
+
+        metrics["bleu"] = nltk.translate.bleu([reference], hypothesis)
+        metrics["meteor"] = meteor_score.meteor_score([reference], hypothesis)
+
+        reference = set(reference)
+        hypothesis = set(hypothesis)
+        metrics["f_measure"] = f_measure(reference, hypothesis)
+
+        metrics["precision"] = precision(reference, hypothesis)
+        metrics["recall"] = recall(reference, hypothesis)
+        metrics["edit_dist"] = nltk.edit_distance(pred, gt) / max(len(pred), len(gt))
+        return metrics
+
+    rewards = []
+    contents = [completion[0]["content"] for completion in completions]
+    
+    for completion, sol in zip(contents, solution):
+        try:
+            # Normalize strings by removing extra whitespace
+            completion_text = " ".join(completion.strip().split())
+            solution_text = " ".join(sol.strip().split())
+            
+            # Calculate edit distance
+            edit_dist = cal_per_metrics(completion_text, solution_text)['edit_dist']
+            
+            # Convert edit distance to reward (higher for smaller distances)
+            max_len = max(len(completion_text), len(solution_text))
+            if max_len == 0:
+                rewards.append(0.0)
+            else:
+                # Normalize by max length and convert to reward between 0 and 1
+                normalized_dist = 1 - edit_dist
+                rewards.append(max(0.0, normalized_dist))
+
+        except Exception as e:
+            print(f"Error in perpo_ocr_edit_distance_reward: {e}")
+            with open('./perpo_ocr_edit_distance_reward_error.txt', "a") as f:
+                try:
+                    f.write(f"Prompt: {prompts}\n")
+                    f.write(f"Content: {completion}\n")
+                    f.write(f"Solution: {sol}\n")
+                except:
+                    f.write("writeing error")
+            print(f"Error in perpo_ocr_edit_distance_reward: {completion} {sol}")
+            rewards.append(0.0)
+
+    
+            
     return rewards
