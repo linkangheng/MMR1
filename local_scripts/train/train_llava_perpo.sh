@@ -10,7 +10,7 @@ OUTPUT_DIR="/mnt/jfs-test/checkpoints/mmr1/debug/mmr1_llava1.5_7b_vllm_perpo_rol
 
 export LOG_PATH="${OUTPUT_DIR}/train.log"
 export WANDB_PROJECT="MMR1"
-torchrun \
+python -m torch.distributed.run \
     --nproc_per_node="7" \
     --nnodes="${NNODES}" \
     --node_rank="${NODE_RANK}" \

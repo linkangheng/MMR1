@@ -7,6 +7,11 @@ reward_funcs_registry = {
     "perpo_format": perpo_format_reward,
     "perpo_iou": perpo_iou_reward,
     "yjs": yjs_perpo_reward,
+    "slowper_format": slowper_format_reward,
+    "slowper_f1": slowper_f1_reward,
+    "perpo_iou": perpo_iou_reward,
+    
+    
 }
 
 # SYSTEM PROMPTS
@@ -31,15 +36,30 @@ COUNTING_REASONING_PROMPT = (
     "<think> reasoning process here </think><answer> answer here </answer>"
 )
 
+SLOWPER_PROMPT = (
+"""You are an expert in geometric shape recognition. Given an image, your task is to accurately describe all the line segments and circles present in the image. 
+
+For each **line segment**, provide its two endpoints. For each **circle**, provide its center coordinates and radius. The output format should be like:  
+Line: 
+(x1, y1) -- (x2, y2)
+(x3, y3) -- (x4, y4)
+
+Circle: (cx, cy, r)
+"""
+)
+
 system_prompt_registry = {
     "default": QWEN2_PROMPT,
     "llava": LLAVA_PROMPT,
     "qwen": QWEN2_PROMPT,
     "counting_reasoning": COUNTING_REASONING_PROMPT,
+    "slow_perception": SLOWPER_PROMPT
+
 }
 
 question_template_registry = {
     "default": "{question}",
+    "slow_perception": "",
     "counting_reasoning": "{question} Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags.",
 }
  

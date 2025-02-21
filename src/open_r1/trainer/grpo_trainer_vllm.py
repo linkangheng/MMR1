@@ -54,6 +54,7 @@ from vllm import LLM, SamplingParams
 from qwen_vl_utils import process_vision_info
 from .utils import pad
 
+
 # What we call a reward function is a callable that takes a list of prompts and completions and returns a list of
 # rewards. When it's a string, it's a model ID, so it's loaded as a pretrained model.
 RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
@@ -229,6 +230,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             model_init_kwargs["use_cache"] = (
                 False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
             )
+            
             if "Qwen2-VL" in model_id:
                 model = Qwen2VLForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
             elif "Qwen2.5-VL" in model_id:
@@ -277,7 +279,10 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Processing class
         if processing_class is None:
             if "Qwen2-VL" in model_id or "Qwen2.5-VL" in model_id or "Aria" in model_id or "llava" in model_id:
-                processing_class = AutoProcessor.from_pretrained(model_id)
+                if "JH" in model_id:
+                    processing_class = AutoProcessor.from_pretrained('/mnt/shared-storage/groups/hypertext/athenawei/checkpoints/Qwen2-VL-2B-Instruct')
+                else:
+                    processing_class = AutoProcessor.from_pretrained(model_id)
                 pad_token_id = processing_class.tokenizer.pad_token_id
                 processing_class.pad_token_id = pad_token_id
                 processing_class.eos_token_id = processing_class.tokenizer.eos_token_id

@@ -82,6 +82,8 @@ def json_map(
     question = example['problem'] if question_template is None else question_template.format(question=example['problem'])
     solution = example['solution'] if answer_template is None else answer_template.format(answer=example['solution'])
     
+
+    
     return {
         "image": load_image(image_path),
         "prompt": json.dumps([
@@ -97,3 +99,4 @@ def json_map(
         "solution": solution,
         "problem": question,
     }
+

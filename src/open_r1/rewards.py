@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime
 from math_verify import parse, verify
+from rewards_utils import calculate_f_score, merge_lines
 
 
 def accuracy_reward(completions, solution, **kwargs):
@@ -104,6 +105,19 @@ def perpo_iou_reward(completions, solution, **kwargs):
         rewards[i] = compute_iou(rst, gt)
     return rewards
 
+
+def slowper_format_reward(completions, **kwargs):
+    """Reward function that checks if the completion follow the perpo format."""
+    matches = []
+    for completion in completions:
+        try:
+            # rst = eval(completion.strip())
+            # matches.append(isinstance(rst, list) and len(rst) == 4)
+            matches.append("Line" in completion and "--" in completion)
+        except:
+            matches.append(False)
+    return [1.0 if match else 0.0 for match in matches]
+
 def yjs_perpo_reward(completions, solution, **kwargs):
     """Reward function that checks if the completion follow the perpo format."""
     def compute_iou(gt_list, model_answer_list):
@@ -155,3 +169,112 @@ def yjs_perpo_reward(completions, solution, **kwargs):
         except:
             rewards.append(-1.0)
     return rewards
+
+
+
+def log(content, sol, other_info, reward, tag=None):
+    log_path = os.getenv("LOG_PATH", f"./checkpoints/logs/train_{time.strftime('%Y-%m-%d')}.log")
+    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+    # with open(log_path, "a") as f:
+    #     try:
+    #         print('write')
+    #         f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
+    #         f.write(f"Content: {content}\n")
+    #         f.write(f"Solution: {sol}\n")
+    #         if other_info is not None:
+    #             f.write(f"Other info: {other_info}\n")
+            
+    #     except:
+    #         f.write("writeing error")
+    #     f.flush()
+    with open(log_path, "a") as f:
+        try:
+            print('write')
+            f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
+            f.flush()  # 立即刷新
+            f.write(f"Content: {content}\n")
+            f.flush()
+            f.write(f"Solution: {sol}\n")
+            f.flush()
+            if other_info is not None:
+                f.write(f"Other info: {other_info}\n")
+                f.flush()
+        except:
+            f.write("writing error")
+            f.flush()
+
+def slowper_f1_reward(completions, solution, **kwargs):
+    # parse the completion and solution
+    # computer the iou
+    
+    
+    def dot_parser(outputs_think):
+        if 'Circle' not in outputs_think:
+            outputs_think_p = outputs_think.split('Line:\n')[1]
+            if outputs_think_p[-1] == '\n':
+                outputs_think_p = outputs_think_p[:-1]
+            # outputs_think_c_list = []
+            outputs_think_c = ''
+        else:
+            outputs_think_p = outputs_think.split('Circle:\n')[0].split('Line:\n')[1]
+            if outputs_think_p[-1] == '\n':
+                outputs_think_p = outputs_think_p[:-1]
+            outputs_think_c = outputs_think.split('Line:\n')[1].split('Circle:\n')[1]
+            if outputs_think_c[-1] == '\n':
+                outputs_think_c = outputs_think_c[:-1]
+
+        outputs_think_p_list = outputs_think_p.split('\n')
+        outputs_think_c_list = outputs_think_c.split('\n')
+        # print(outputs_think_p_list)
+        # fig, ax = plt.subplots(figsize=(10,10))
+        # ax.set_xlim(-10, 10)
+        # ax.set_ylim(-10, 10)
+
+        line_list = []
+        for p in outputs_think_p_list:
+            # try:
+            if '--' in p:
+                p0 = eval(p.split(' -- ')[0])
+                p1 = eval(p.split(' -- ')[-1])
+                # ax.plot([p0[0], p1[0]], [p0[1], p1[1]])
+                # # print([p0, p1])
+                # ax.scatter(p0[0], p0[1], s=10)
+                # ax.scatter(p1[0], p1[1], s=10)
+
+                line_list.append(((p0[0], p0[1]), (p1[0], p1[1])))
+
+
+        # out_dict[name] = line_list
+
+        # return out_dict
+        return line_list
+
+
+    def compute_iou(pred, gt):
+        new_lines = merge_lines(pred)
+
+        # f_score, precision, recall = calculate_f_score(new_lines, gt[key], iou_threshold = 0.75)
+        f_score, precision, recall = calculate_f_score(new_lines, gt, iou_threshold = 0.75)
+
+        # todo: short and long line rewards
+
+        return f_score
+    
+    contents = [completion[0]["content"] for completion in completions]
+    rewards = [0.0 for _ in contents]
+    for i, (completion, sol) in enumerate(zip(contents, solution)):
+        # print(completion)
+        # if slowper_format_reward(completion)[i] == 0.0:
+        #     continue
+        # import ipdb;ipdb.set_trace()
+        # print(completion)
+
+        # rst = dot_parser(eval(completion.strip()))
+        # gt = dot_parser(eval(sol.strip()))
+        rst = dot_parser(completion.strip())
+        gt = dot_parser(sol.strip())
+        rewards[i] = compute_iou(rst, gt)
+        log(completion, sol, None, rewards[i], tag=None)
+    return rewards
+
+
