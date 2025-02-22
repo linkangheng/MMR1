@@ -45,52 +45,68 @@
 ### 🤯2025.02.17
 #### 🖼️ OCR Task Support
 The model now supports training on OCR (Optical Character Recognition) tasks.
+
 **Usage:**
 ```bash
 bash local_scripts/train/train_qwen2_2b_vl_ocr_demo.sh
 ```
 #### 🔥Temperature Control
 Control the sampling temperature during training using `--temperature_func`.
+
 Available Functions:
-- Linear Scheduling:
+
+- **Linear Scheduling:**
+  
   - Set `--temperature_func linear` with:
+
     - `--temperature_begin`: Initial temperature (must be ≤ temperature_end).
+
     - `--temperature_end`: Final temperature.
+
   - Temperature linearly increases from `--temperature_begin` to `--temperature_end` over training steps.
-- Constant Scheduling:
+
+- **Constant Scheduling:**
   - Set `--temperature_func constant` with `--temperature` to apply a fixed temperature value.
 
 #### 🎛️ KL Divergence Control
 
 #### K1: Context-Distribution KL
-- Definition: Penalizes divergence between the model’s response distribution and a prior distribution over context tokens.
-- Parameters:
+
+- **Definition:** Penalizes divergence between the model’s response distribution and a prior distribution over context tokens.
+
+- **Parameters:**
   - `--k1_weight`: Weight for K1 loss (default: 0.1).
   - `--k1_threshold`: Threshold for clipping K1 divergence (default: 10.0).
 
 #### K3: Adaptive Response KL
-- Definition: Dynamically scales KL penalty based on response entropy to avoid over-regularization.
-- Parameters:
+- **Definition:** 
+  - Dynamically scales KL penalty based on response entropy to avoid over-regularization.
+
+- **Parameters:**
   - `--k3_weight`: Weight for K3 loss (default: 0.2).
   - `--k3_adaptive_factor`: Scaling factor for entropy-based adaptation (default: 0.5).
 
 #### KimiKL: Task-Specific KL
-- Definition: Task-conditioned KL regularization for domain-specific fine-tuning.
-- Parameters:
+- **Definition:** 
+  - Task-conditioned KL regularization for domain-specific fine-tuning.
+
+- **Parameters:**
   - `--kimikl_weight`: Weight for KimiKL loss (default: 0.1).
   - `--kimikl_task_id`: Task identifier (e.g., ocr, grounding).
 
 #### KimiFull: Full-Distribution KL
-- Definition: Applies KL regularization across the entire output distribution.
-- Parameters:
+- **Definition:** 
+  - Applies KL regularization across the entire output distribution.
+
+- **Parameters:**
   - `--kimifull_weight`: Weight for KimiFull loss (default: 0.05).
 
 
 #### 📉 Entropy Regularization
-Adjust entropy of the output distribution using --entropy_reg.
-- Definition:
+- **Definition:**
   - Entropy loss is computed as L_entropy = -entropy_weight * H(p), where H(p) is the entropy of the model’s output distribution. This term incentivizes the model to sharpen (low entropy) or diversify (high entropy) predictions based on the task.
-- Parameters:
+
+- **Parameters:**
   - `--entropy_reg`: Enable entropy regularization (default: False).
   - `--entropy_weight`:
     - Use positive values to encourage higher entropy (e.g., for creative generation).
@@ -100,14 +116,14 @@ Adjust entropy of the output distribution using --entropy_reg.
 Additional metrics are now logged to wandb and local:
 
 ##### Reward Logs:
-- completion: Generated text snippets.
-- solution: Intermediate reasoning steps (if applicable).
-- reward: Task-specific reward signals.
+- `completion`: Model response when rollouting.
+- `solution`: Intermediate reasoning steps (if applicable).
+- `reward`: Task-specific reward signals.
 
 ##### Model State Metrics:
-- KLs: K1, K3, KimiKL, and KimiFull divergence values.
-- entropy: Output distribution entropy.
-- temperature: Current temperature value.
+- `KLs`: K1, K3, KimiKL, and KimiFull divergence values.
+- `entropy`: Output distribution entropy.
+- `temperature`: Current temperature value.
 To enable logging, ensure wandb is configured in your environment.
 
 ## 🚀 **Quick Start**
