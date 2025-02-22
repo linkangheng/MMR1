@@ -81,27 +81,27 @@ Available Functions:
 - Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
 
 - **Definition:**
- - k1 = logprobs-ref_logprobs
+ - `k1 = logprobs-ref_logprobs`
 - **Parameters:**
   - `--beta`: Weight for loss (default: 0.04).
 
 #### K3: Adaptive Response KL
 - Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
 - **Definition:** 
- - k3 = exp(ref_logprob-logprob) - (ref_logprob - loggprob) - 1
+ - `k3 = exp(ref_logprob-logprob) - (ref_logprob - loggprob) - 1`
 - **Parameters:**
   - `--beta`: Weight for loss (default: 0.04).
 
 #### KimiKL: Task-Specific KL
 - **Definition:** 
-  - kimikl(k2) = 0.5*(logprob-ref_logprob)**2
+  - `kimikl(k2) = 0.5*(logprob-ref_logprob)**2`
 
 - **Parameters:**
   - `--beta`: Weight for KimiKL loss (default: 0.04).
 
 #### KimiFull: Full-Distribution KL
 - **Definition:** 
-  - Applies KL regularization across the entire output distribution.
+
 
 - **Parameters:**
   - `--beta`: Weight for KimiFull loss (default: 0.04).
