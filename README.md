@@ -95,13 +95,12 @@ Available Functions:
 #### KimiKL: Task-Specific KL
 - **Definition:** 
   - `kimikl(k2) = 0.5*(logprob-ref_logprob)**2`
-<td><img src="./assets/fullkimi_loss.png"></td>
 - **Parameters:**
   - `--beta`: Weight for KimiKL loss (default: 0.04).
 
 #### KimiFull: Full-Distribution KL
 - **Definition:** 
-
+<td><img src="./assets/fullkimi_loss.png"></td>
 
 - **Parameters:**
   - `--beta`: Weight for KimiFull loss (default: 0.04).
