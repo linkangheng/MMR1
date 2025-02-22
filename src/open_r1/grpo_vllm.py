@@ -105,15 +105,6 @@ def main(script_args, training_args, model_args):
     if training_args.push_to_hub:
         trainer.push_to_hub(dataset_name=script_args.dataset_name)
 
-def save_args_to_txt(args, filename):
-    """
-    将 argparse 解析的参数保存到 txt 文件中
-    :param args: argparse.Namespace 对象，包含解析后的参数
-    :param filename: 要保存的文件名
-    """
-    with open(filename, 'w') as f:
-        for key, value in vars(args).items():
-            f.write(f"{key}: {value}\n")
 
 if __name__ == "__main__":
     parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))

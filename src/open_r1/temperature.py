@@ -5,7 +5,7 @@ def temperature_linear(args, total_step):
         yield temperature
 
 def temperature_constant(args, total_step):
-    temperature = args.temperature_constant
+    temperature = args.temperature_begin
     while True:
         yield temperature
 

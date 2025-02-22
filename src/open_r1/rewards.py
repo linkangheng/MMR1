@@ -64,6 +64,7 @@ def format_reward(completions, **kwargs):
 def perpo_format_reward(completions, **kwargs):
     """Reward function that checks if the completion follow the perpo format."""
     matches = []
+    
     for completion in completions:
         try:
             rst = eval(completion.strip())
@@ -141,7 +142,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
         return iou
 
     rewards = []
-    contents = [completion[0]["content"] for completion in completions]
+    if 'content' in completions[0][0]:
+        contents = [completion[0]["content"] for completion in completions]
+    else:
+        contents = completions
     for completion, sol in zip(contents, solution):
         try:
             gt_list = eval(sol.strip())
@@ -155,7 +159,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
                 rewards.append(-1.0)
                 continue
             iou = compute_iou(gt_list, model_answer_list)
-            rewards.append(iou**2)
+            if iou <= 0:
+                rewards.append(iou)
+            else:
+                rewards.append(iou**2)
         except:
             rewards.append(-1.0)
     return rewards
@@ -207,6 +214,7 @@ def perpo_ocr_edit_distance_reward(prompts, completions, solution, **kwargs):
                 # Normalize by max length and convert to reward between 0 and 1
                 normalized_dist = 1 - edit_dist
                 rewards.append(max(0.0, normalized_dist))
+
         except Exception as e:
             print(f"Error in perpo_ocr_edit_distance_reward: {e}")
             with open('./perpo_ocr_edit_distance_reward_error.txt', "a") as f:

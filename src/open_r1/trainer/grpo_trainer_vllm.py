@@ -55,6 +55,7 @@ from qwen_vl_utils import process_vision_info
 from .utils import pad
 import sys
 sys.path.append('/data/MMR1/src/open_r1/')
+from ..utils import save_dict_to_json
 from arguments import GRPOScriptArguments
 from torch.utils.data import Dataset, IterableDataset, RandomSampler, SequentialSampler
 from temperature import *
@@ -410,7 +411,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 total_step = len(self.train_dataset) // args.train_batch_size
                 self.temperature_func = temperature_func(self.script_args, total_step)
             else:
-                self.temperature = 1.0
+                print("Please set temperature_func")
             vllm_device = "auto"
             if vllm_device == "auto":
                 # vllm_device = f"cuda:{self.accelerator.num_processes - 1}"  # take the next GPU idx
@@ -661,6 +662,8 @@ class Qwen2VLGRPOTrainer(Trainer):
                 keys = [key for key in inputs[0] if key not in ["prompt", "completion"]]
                 reward_kwargs = {key: [example[key] for example in inputs] for key in keys}
                 output_reward_func = reward_func(prompts=prompts, completions=completions, **reward_kwargs)
+                if self.script_args.debug_write_to_file:
+                    save_dict_to_json({"completions": [completion[0]["content"] for completion in completions],"output_reward_func": output_reward_func, "solution": reward_kwargs["solution"]}, "debug.json")
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
         
         # Gather the reward per function: this part is crucial, because the rewards are normalized per group and the
@@ -677,10 +680,19 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Normalize the rewards to compute the advantages
         mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
-        if self.script_args.kl_approximator == 'fullkimi':
-            advantages = rewards - mean_grouped_rewards
-        else:   
-            advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+        if self.script_args.origin_pg:
+            advantages = rewards
+        elif self.script_args.no_mean_for_same_reward:
+            std_mask  = torch.tensor([1.0 if std.item() != 0 else 0.0 for std in std_grouped_rewards], device=self.accelerator.device)
+            advantages = (rewards - mean_grouped_rewards*std_mask) / (std_grouped_rewards + 1e-4)
+            advantages = torch.clamp(advantages, min=-1.0, max=1.0)
+            if self.args.debug:
+                save_dict_to_json({"advantages": advantages.tolist(), "std_mask": std_mask.tolist(), "mean_grouped_rewards": mean_grouped_rewards.tolist(), "std_grouped_rewards": std_grouped_rewards.tolist(), "rewards": rewards.tolist()}, "debug_advantages.json")
+        else:
+            if self.script_args.kl_approximator == 'fullkimi':
+                advantages = rewards - mean_grouped_rewards
+            else:   
+                advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
 
         process_slice = slice(
             self.accelerator.process_index * len(prompts),
@@ -729,6 +741,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         self._metrics['delta_ref_entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss-mean_ref_entropy_loss).mean().item())
         self._metrics['ppl'].append(self.accelerator.gather_for_metrics(ppl).mean().item())
         self._metrics['delta_ref_ppl'].append(self.accelerator.gather_for_metrics(ppl-ref_ppl).mean().item())
+        self._metrics['advantages'].append(self.accelerator.gather_for_metrics(advantages.mean()).mean().item())
         if self.accelerator.is_main_process:
             self._metrics["temperature"].append(self.sampling_params.temperature)
         return loss
