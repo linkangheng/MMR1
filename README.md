@@ -29,7 +29,7 @@
 - [ ] Remove all the absolute path
 
 ## 📅 **Update Logs**
-### 2025.02.16
+### 🤯2025.02.16
 - Move all constants to constants.py
 - Add the `train_sample_size` to config the number of training samples
 - Add system_prompt_template, question_template, answer_template to set the system prompt, question template, answer template, if you want to use a custom template, you can design your own template in the `constants.py` and set the `system_prompt_template`, `question_template`, `answer_template` to your custom template name.
