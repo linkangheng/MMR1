@@ -42,7 +42,9 @@
 }
 ```
 ### 2025.02.17
-#### add some hyperparameters
+#### add some hyperparameters aboout Temperature controling and KL controling
+##### Temperature controling
+
 you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
 
 `-use_kl`: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
@@ -66,8 +68,7 @@ For literary creation task, we expect entropy to increase. this can be controlle
 
 `-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
 
-``` python
-```
+##### KL controling
 
 ## 🚀 **Quick Start**
 
