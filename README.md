@@ -50,6 +50,8 @@ The model now supports training on OCR (Optical Character Recognition) tasks.
 ```bash
 bash local_scripts/train/train_qwen2_2b_vl_ocr_demo.sh
 ```
+
+---
 #### 🔥Temperature Control
 Control the sampling temperature during training using `--temperature_func`.
 
