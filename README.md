@@ -71,7 +71,7 @@ Available Functions:
   - Set `--temperature_func constant` with `--temperature` to apply a fixed temperature value.
 
 ---
-#### 🎛️ KL Divergence Control
+### 🎛️ KL Divergence Control
 
 - **Note:** You can view [kl approximator introduction](https://zhuanlan.zhihu.com/p/139084847) to know what is k1, k2(kimikl), k3.Our 'fullkimi' follow the kimi1.5 paper loss.
 - **Note:** No matter whether to use kl or which kl to use, we've provide module to compute kl while training. So, ref model is loaded even if use_kl is set to False
