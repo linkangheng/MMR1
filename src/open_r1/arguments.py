@@ -60,8 +60,8 @@ class GRPOScriptArguments(ScriptArguments):
         metadata={"help": "the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease."}
     )
     temperature_func: str = field(
-        default="linear", 
-        metadata={"help":"which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is 'linear' and 'constant'"}
+        default="constant",
+        metadata={"help":"which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function."}
     )
     temperature_begin: float = field(
         default=0.1, 
@@ -71,24 +71,7 @@ class GRPOScriptArguments(ScriptArguments):
         default=1.0, 
         metadata={"help": "the ending temperature for training(optional for linear temperature)"}
     )
-    temperature_constant: float = field(
-        default=1.0, 
-        metadata={"help": "the constant temperature for training(optional for constant temperature)"}
-    )
-    format_random: bool = field(
-        default=False, 
-        metadata={"help": "whether to add random in format reward"}
-    )
-    origin_pg: bool = field(
-        default=False, 
-        metadata={"help": "whether to use origin pg methods instead of mean advantage"}
-    )
     no_mean_for_same_reward: bool = field(
-        default=False, 
+        default=False,
         metadata={"help": "whether to not minus  reward mean if same reward"}
     )
-    debug_write_to_file: bool = field(
-        default=False, 
-        metadata={"help": "whether to write debug info to file"}
-    )
-

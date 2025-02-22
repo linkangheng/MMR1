@@ -13,40 +13,28 @@
 # limitations under the License.
 
 import os
-import re
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
-
-from datasets import load_dataset, load_from_disk, Image, Value
-from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
-from open_r1.constants import reward_funcs_registry, system_prompt_registry, question_template_registry, answer_template_registry, temperature_func_registry
+from datasets import load_dataset, load_from_disk, Image
+from trl import GRPOConfig, ModelConfig, TrlParser, get_peft_config
+from open_r1.constants import reward_funcs_registry, system_prompt_registry, question_template_registry, answer_template_registry
 from open_r1.utils import *
 from open_r1.trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
-
-
-from arguments import GRPOScriptArguments
-
+from open_r1.arguments import GRPOScriptArguments
 
 def main(script_args, training_args, model_args):
     # Get reward functions
     reward_funcs = [reward_funcs_registry[func] for func in script_args.reward_funcs]
-    # Get temperature function
-    temperature_func = temperature_func_registry[script_args.temperature_func]
-    # modify some hyperparameters
+    
+    # prepare parameters for Kimi-KL
     if script_args.kl_approximator == 'fullkimi':
+        script_args.use_kl = True
         training_args.sync_ref_model = True
         training_args.ref_model_mixup_alpha = 1.0
         training_args.ref_model_sync_steps = 1
-        script_args.use_kl = True
-
     
     # save args to output_dir
     save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'script_args.txt'))
     save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'training_args.txt'))
     save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'model_args.txt'))
-
-
 
     # Load the dataset
     if "json" in script_args.dataset_name:
@@ -54,7 +42,7 @@ def main(script_args, training_args, model_args):
         dataset = load_dataset('json',data_files=script_args.dataset_name,)
     else:
         try:
-            # hf-online dataset
+             
             dataset = load_dataset(script_args.dataset_name)
             if "image" not in dataset[script_args.dataset_train_split].features:
                 raise ValueError("The dataset is created locally.")
@@ -93,8 +81,7 @@ def main(script_args, training_args, model_args):
         attn_implementation=model_args.attn_implementation,
         max_pixels=script_args.max_pixels,
         min_pixels=script_args.min_pixels,
-        script_args=script_args, 
-        temperature_func=temperature_func
+        script_args=script_args
     )
 
     # Train and push the model to the Hub
@@ -104,7 +91,6 @@ def main(script_args, training_args, model_args):
     trainer.save_model(training_args.output_dir)
     if training_args.push_to_hub:
         trainer.push_to_hub(dataset_name=script_args.dataset_name)
-
 
 if __name__ == "__main__":
     parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))

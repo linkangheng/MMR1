@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# Not Totally Ready
 export NCCL_ALGO=^Ring
 export NCCL_NET_OVERHEAD=1000000
 export TORCHRUN=/data/ICCV2025/PaR/MMR1/local_scripts/torchrun.sh
