@@ -78,26 +78,26 @@ Available Functions:
 
 #### K1: Context-Distribution KL
 
-Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
-
 - **Definition:**
 
   k1 = logprobs - ref_logprobs
 
 - **Parameters:**
+
+  - Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
   - `--beta`: Weight for loss (default: 0.04).
-
+  
 #### K3: Adaptive Response KL
-
-Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
 
 - **Definition:** 
 
   k3 = exp(ref_logprob-logprob) - (ref_logprob - loggprob) - 1
 
 - **Parameters:**
-  - `--beta`: Weight for loss (default: 0.04).
 
+  - Set `--kl_approximator k3` with `--use_kl True` to use k1 kl for training
+  - `--beta`: Weight for loss (default: 0.04).
+  
 #### KimiKL: Task-Specific KL
 
 - **Definition:** 
@@ -105,14 +105,18 @@ Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
   kimikl(k2) = 0.5*(logprob-ref_logprob)**2
 
 - **Parameters:**
+
+  - Set `--kl_approximator kimi` with `--use_kl True` to use k1 kl for training
   - `--beta`: Weight for KimiKL loss (default: 0.04).
 
 #### KimiFull: Full-Distribution KL
 - **Definition:**
-  
+
   <td><img src="./assets/fullkimi_loss.png"></td>
 
 - **Parameters:**
+  
+  - Set `--kl_approximator kimifull` with `--use_kl True` to use k1 kl for training
   - `--beta`: Weight for KimiFull loss (default: 0.04).
 
 ---
