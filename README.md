@@ -72,8 +72,10 @@ Available Functions:
 
 ---
 #### 🎛️ KL Divergence Control
+- **Note:** You can view [kl approximator introduction](https://zhuanlan.zhihu.com/p/139084847) to know what is k1, k2(kimikl), k3.Our 'fullkimi' follow the kimi1.5 paper loss.
 
 #### K1: Context-Distribution KL
+
 
 - **Definition:** Penalizes divergence between the model’s response distribution and a prior distribution over context tokens.
 
@@ -86,8 +88,7 @@ Available Functions:
   - Dynamically scales KL penalty based on response entropy to avoid over-regularization.
 
 - **Parameters:**
-  - `--k3_weight`: Weight for K3 loss (default: 0.2).
-  - `--k3_adaptive_factor`: Scaling factor for entropy-based adaptation (default: 0.5).
+  - `--beta`: Weight for loss (default: 0.04).
 
 #### KimiKL: Task-Specific KL
 - **Definition:** 
