@@ -72,38 +72,39 @@ Available Functions:
 
 ---
 #### 🎛️ KL Divergence Control
+
 - **Note:** You can view [kl approximator introduction](https://zhuanlan.zhihu.com/p/139084847) to know what is k1, k2(kimikl), k3.Our 'fullkimi' follow the kimi1.5 paper loss.
+- **Note:** No matter whether to use kl or which kl to use, we've provide module to compute kl while training. So, ref model is loaded even if use_kl is set to False
 
 #### K1: Context-Distribution KL
 
+- Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
 
-- **Definition:** Penalizes divergence between the model’s response distribution and a prior distribution over context tokens.
-
+- **Definition:**
+ - k1 = logprobs-ref_logprobs
 - **Parameters:**
-  - `--k1_weight`: Weight for K1 loss (default: 0.1).
-  - `--k1_threshold`: Threshold for clipping K1 divergence (default: 10.0).
+  - `--beta`: Weight for loss (default: 0.04).
 
 #### K3: Adaptive Response KL
+- Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
 - **Definition:** 
-  - Dynamically scales KL penalty based on response entropy to avoid over-regularization.
-
+ - k3 = exp(ref_logprob-logprob) - (ref_logprob - loggprob) - 1
 - **Parameters:**
   - `--beta`: Weight for loss (default: 0.04).
 
 #### KimiKL: Task-Specific KL
 - **Definition:** 
-  - Task-conditioned KL regularization for domain-specific fine-tuning.
+  - kimikl(k2) = 0.5*(logprob-ref_logprob)**2
 
 - **Parameters:**
-  - `--kimikl_weight`: Weight for KimiKL loss (default: 0.1).
-  - `--kimikl_task_id`: Task identifier (e.g., ocr, grounding).
+  - `--beta`: Weight for KimiKL loss (default: 0.04).
 
 #### KimiFull: Full-Distribution KL
 - **Definition:** 
   - Applies KL regularization across the entire output distribution.
 
 - **Parameters:**
-  - `--kimifull_weight`: Weight for KimiFull loss (default: 0.05).
+  - `--beta`: Weight for KimiFull loss (default: 0.04).
 
 ---
 ### 📉 Entropy Regularization
