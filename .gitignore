@@ -179,6 +179,30 @@ checkpoints/
 
 *.json
 *.jsonl
+*.csv
 
 dirty_cache/
 local_scripts/eval/recore_wandb.py
+evaluate_qwen_by_reward.py
+local_scripts/data/ocr_data.py
+local_scripts/train/train.sh
+perpo_data.py
+perpo_ocr_edit_distance_reward_error.txt
+train.sh
+train_llava1.57b_perpo.sh
+train_qwen22b_perpo-ocr.sh
+train_qwen22b_perpo.sh
+
+eval/evaluate_counting_bon.py
+eval/evaluate_counting_wo_format.py
+
+local_scripts/data/mask_datas
+local_scripts/eval/report
+local_scripts/lazy
+local_scripts/train/grounding
+local_scripts/train/lucas_counting
+local_scripts/train/train_llava1.5-7b_perpo_demo_parameter.sh
+test.py
+train_grounding.sh
+kill.sh
+inference/

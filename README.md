@@ -23,13 +23,13 @@
 - [x] Fix the bug of gradient checkpointing
 - [x] Support scale up rollout size
 - [x] Support Multi-machine parallel
-- [ ] Support `Kimi-KL`
-- [ ] Support `OCR` Tasks
+- [x] Support `Kimi-KL`
+- [x] Support `OCR` Tasks
 - [ ] Support `Detection` Tasks
 - [ ] Remove all the absolute path
 
 ## 📅 **Update Logs**
-### 2025.02.16
+### 🤯2025.02.16
 - Move all constants to constants.py
 - Add the `train_sample_size` to config the number of training samples
 - Add system_prompt_template, question_template, answer_template to set the system prompt, question template, answer template, if you want to use a custom template, you can design your own template in the `constants.py` and set the `system_prompt_template`, `question_template`, `answer_template` to your custom template name.
@@ -41,41 +41,112 @@
     "image": <image_path>
 }
 ```
-### 2025.02.17
-#### add some hyperparameters
-you can view the ```src/open_r1/arguments.py``` for detail info of every hyperparameters and use the ```train_qwen22b_perpo.sh``` to train qwen baseline on perpo grounding task. 
 
-`-use_kl`: whether to use kl in loss. If false, no kl will be included into loss. But you can also view kl change trends in pandb.
+### 🤯2025.02.17
+#### 🖼️ OCR Task Support
+The model now supports training on OCR (Optical Character Recognition) tasks.
 
-`-kl_approximator`: which type kl to use for computing loss.you can use k1(not good), k3(official in grpo, unbias, lowest variance), 
-kimikl(only the kl used in kimi1.5), kimifull(the same setting as the core idea of kimi1.5, 
-your value of sync_ref_model, ref_model_mixup_alpha and ref_model_sync_steps will be invalid, they are all set the same as kimi1.5)
-
-`-entropy_reg`: whether to use entropy regularization while training. For discriminative tasks like grounding, ocr and counting, we expect entropy to decrease.
-For literary creation task, we expect entropy to increase. this can be controlled by entropy_weight.
-
-`-entropy_weight`: the weight for entropy loss. It's only valid when entropy_reg is true. If it's positive, the entropy is to increase. If it's negetive, the entropy is to decrease.
-
-`-temperature_func`: which temperature function to use while training. Unlike reward_funcs, you can only use one temperature function. The available function is "linear" and "constant"
-
-`-learning_rate`: the laerning_rate for begining training. The learning rate will end to 0.
-
-`-sync_ref_model`: whether to update ref modeel while training.
-
-`-ref_model_mixup_alpha`: the alpha to mix policy model and ref moodel: `π_ref = α * π_θ + (1 - α) * π_ref_prev`. In kimi1.5, they set the value 1.0
-
-`-ref_model_sync_steps`: the steps for updating ref model. In kimi1.5, they set the value 1
-
-``` python
+**Usage:**
+```bash
+bash local_scripts/train/train_qwen2_2b_vl_ocr_demo.sh
 ```
+
+---
+#### 🔥Temperature Control
+Control the sampling temperature during training using `--temperature_func`.
+
+Available Functions:
+
+- **Linear Scheduling:**
+  
+  - Set `--temperature_func linear` with:
+
+    - `--temperature_begin`: Initial temperature (must be ≤ temperature_end).
+
+    - `--temperature_end`: Final temperature.
+
+  - Temperature linearly increases from `--temperature_begin` to `--temperature_end` over training steps.
+
+- **Constant Scheduling:**
+  - Set `--temperature_func constant` with `--temperature` to apply a fixed temperature value.
+
+---
+### 🎛️ KL Divergence Control
+
+- **Note:** You can view [kl approximator introduction](https://zhuanlan.zhihu.com/p/139084847) to know what is k1, k2(kimikl), k3.Our 'fullkimi' follow the kimi1.5 paper loss.
+- **Note:** No matter whether to use kl or which kl to use, we've provide module to compute kl while training. So, ref model is loaded even if use_kl is set to False
+
+#### K1: Context-Distribution KL
+
+- **Definition:**
+
+  k1 = logprobs - ref_logprobs
+
+- **Parameters:**
+
+  - Set `--kl_approximator k1` with `--use_kl True` to use k1 kl for training
+  - `--beta`: Weight for loss (default: 0.04).
+  
+#### K3: Adaptive Response KL
+
+- **Definition:** 
+
+  k3 = exp(ref_logprob-logprob) - (ref_logprob - loggprob) - 1
+
+- **Parameters:**
+
+  - Set `--kl_approximator k3` with `--use_kl True` to use k1 kl for training
+  - `--beta`: Weight for loss (default: 0.04).
+  
+#### KimiKL: Task-Specific KL
+
+- **Definition:** 
+
+  kimikl(k2) = 0.5*(logprob-ref_logprob)**2
+
+- **Parameters:**
+
+  - Set `--kl_approximator kimi` with `--use_kl True` to use k1 kl for training
+  - `--beta`: Weight for KimiKL loss (default: 0.04).
+
+#### KimiFull: Full-Distribution KL
+- **Definition:**
+
+  <td><img src="./assets/fullkimi_loss.png"></td>
+
+- **Parameters:**
+  
+  - Set `--kl_approximator kimifull` with `--use_kl True` to use k1 kl for training
+  - `--beta`: Weight for KimiFull loss (default: 0.04).
+
+---
+### 📉 Entropy Regularization
+- **Definition:**
+  - Entropy loss is computed as L_entropy = -entropy_weight * H(p), where H(p) is the entropy of the model’s output distribution. This term incentivizes the model to sharpen (low entropy) or diversify (high entropy) predictions based on the task.
+
+- **Parameters:**
+  - `--entropy_reg`: Enable entropy regularization (default: False).
+  - `--entropy_weight`:
+    - Use positive values to encourage higher entropy (e.g., for creative generation).
+    - Use negative values to reduce entropy (e.g., for discriminative tasks like OCR or grounding).
+
+---
+#### 📊 Enhanced Training Logs
+Additional metrics are now logged to wandb and local:
+
+##### Reward Logs:
+- `completion`: Model response when rollouting.
+- `solution`: Intermediate reasoning steps (if applicable).
+- `reward`: Task-specific reward signals.
+
+##### Model State Metrics:
+- `KLs`: K1, K3, KimiKL, and KimiFull divergence values.
+- `entropy`: Output distribution entropy.
+- `temperature`: Current temperature value.
+To enable logging, ensure wandb is configured in your environment.
 
 ## 🚀 **Quick Start**
-
-You can run the following command to quickly start the training of `LLaVA-GRPO-Perpo`.
-
-```bash
-bash local_scripts/train/train_llava_perpo.sh
-```
+We now support *counting*, *grounding*, *ocr* tasks. You can easily run the demo scripts in `local_scripts/train/`.
 
 ## 🥩 **Mini-Batch**
 Optimize GRPO memory usage by redefining per_device_batch_size as generations per device, introduces a more flexible approach:

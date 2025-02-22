@@ -19,6 +19,7 @@ from typing import Any, Callable, Optional, Sized, Union
 from unittest.mock import patch
 
 import deepspeed
+import PIL
 import torch
 import transformers
 import torch.utils.data
@@ -43,16 +44,19 @@ from transformers import (
 )
 from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
 from transformers.utils import is_peft_available
+from torch.utils.data import Dataset, IterableDataset, RandomSampler, SequentialSampler
 from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
 from trl.models import create_reference_model, prepare_deepspeed
 from trl.trainer.grpo_config import GRPOConfig
 from trl.trainer.utils import generate_model_card, get_comet_experiment_url
-
-if is_peft_available():
-    from peft import PeftConfig, get_peft_model
+from trl.trainer.callbacks import SyncRefModelCallback
 from vllm import LLM, SamplingParams
 from qwen_vl_utils import process_vision_info
-from .utils import pad
+from open_r1.trainer.utils import pad
+from open_r1.utils import save_dict_to_json
+from open_r1.arguments import GRPOScriptArguments
+if is_peft_available():
+    from peft import PeftConfig, get_peft_model
 
 # What we call a reward function is a callable that takes a list of prompts and completions and returns a list of
 # rewards. When it's a string, it's a model ID, so it's loaded as a pretrained model.
@@ -201,6 +205,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             max_pixels: Optional[int] = 12845056,
             min_pixels: Optional[int] = 3136,
             attn_implementation: str = "flash_attention_2",
+            script_args: GRPOScriptArguments = None, 
     ):
         # Args
         if args is None:
@@ -210,6 +215,7 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         # Models
         # Trained model
+        self.script_args = script_args
         model_init_kwargs = args.model_init_kwargs or {}
         model_init_kwargs["attn_implementation"] = attn_implementation
         if isinstance(model, str):
@@ -329,6 +335,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         self.num_generations = args.num_generations  # = G in the GRPO paper, 8
 
         self.beta = args.beta
+        
 
         # The trainer estimates the number of FLOPs (floating-point operations) using the number of elements in the
         # input tensor associated with the key "input_ids". However, in GRPO, the sampled data does not include the
@@ -351,7 +358,6 @@ class Qwen2VLGRPOTrainer(Trainer):
             callbacks=callbacks,
             optimizers=optimizers,
         )
-
         # Gradient accumulation requires scaled loss. Normally, loss scaling in the parent class depends on whether the
         # model accepts loss-related kwargs. Since we compute our own loss, this check is irrelevant. We set
         # self.model_accepts_loss_kwargs to False to enable scaling.
@@ -362,6 +368,9 @@ class Qwen2VLGRPOTrainer(Trainer):
                 self.ref_model = prepare_deepspeed(self.ref_model, self.accelerator)
             else:
                 self.ref_model = self.accelerator.prepare_model(self.ref_model, evaluation_mode=True)
+        
+        if args.sync_ref_model:
+            self.add_callback(SyncRefModelCallback(ref_model=self.ref_model, accelerator=self.accelerator))
 
         for i, reward_func in enumerate(self.reward_funcs):
             if isinstance(reward_func, PreTrainedModel):
@@ -392,6 +401,18 @@ class Qwen2VLGRPOTrainer(Trainer):
         set_seed(args.seed, device_specific=True)
 
         if self.accelerator.is_main_process:
+            # dynamic temperature in training
+            assert self.script_args.temperature_func is not None, "Please set temperature_func"
+            if self.script_args.temperature_func is not None:
+                init_temp = self.script_args.temperature_begin
+                final_temp = self.script_args.temperature_end
+                total_step = len(self.train_dataset) * args.num_generations // args.per_device_train_batch_size
+                if self.script_args.temperature_func == "linear":
+                    assert init_temp <= final_temp, "init_temp must be less than final_temp"
+                    self.temperature_func = lambda step: init_temp + (final_temp - init_temp) * (step / total_step)
+                elif self.script_args.temperature_func == "constant":
+                    self.temperature_func = lambda step: args.temperature
+            
             # load vllm
             vllm_device = "auto"
             if vllm_device == "auto":
@@ -430,7 +451,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                     enable_prefix_caching=True,
                 )
                 self.sampling_params = SamplingParams(
-                    temperature=0.9,
+                    temperature=args.temperature,
                     top_p=0.9,
                     top_k=50,
                     max_tokens=self.max_completion_length,
@@ -474,7 +495,9 @@ class Qwen2VLGRPOTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         if return_outputs:
             raise ValueError("The GRPOTrainer does not support returning outputs")
-
+        # dynamic temperature in training
+        if self.accelerator.is_main_process and self.script_args.temperature_func is not None:
+            self.sampling_params.temperature = self.temperature_func(self.state.global_step)
         device = self.accelerator.device
         for x in inputs:
             x['prompt'] = json.loads(x['prompt'])
@@ -503,7 +526,7 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         for image_data, messages in zip(images, prompts):
             prompt = self.processing_class.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            # image_data, _ = process_vision_info(messages)
+            image_data, _ = process_vision_info(messages) if not isinstance(image_data, PIL.Image.Image) else (image_data, None)
             for i in range(batch_size):
                 inputs_vllm.append({
                     "prompt": prompt,
@@ -565,11 +588,15 @@ class Qwen2VLGRPOTrainer(Trainer):
                         1:]  # (B, L-1), exclude the first input ID since we don't have logits for it
             # Compute the log probabilities for the input tokens. Use a loop to reduce memory peak.
             per_token_logps = []
+            per_token_entropys = []
             for logits_row, input_ids_row in zip(logits, input_ids):
                 log_probs = logits_row.log_softmax(dim=-1)
+                probs = logits_row.softmax(dim=-1)
+                entropy = -torch.sum(log_probs*probs, dim=-1)
                 token_log_prob = torch.gather(log_probs, dim=1, index=input_ids_row.unsqueeze(1)).squeeze(1)
                 per_token_logps.append(token_log_prob)
-            return torch.stack(per_token_logps)
+                per_token_entropys.append(entropy)
+            return torch.stack(per_token_logps), torch.stack(per_token_entropys)
 
         batched_inputs1 = batched_inputs.copy()
 
@@ -577,22 +604,39 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         batched_inputs1["input_ids"] = prompt_completion_ids
         batched_inputs1["attention_mask"] = attention_mask
-        per_token_logps = get_per_token_logps(model, **batched_inputs1)
+        per_token_logps, per_token_entropys = get_per_token_logps(model, **batched_inputs1)
+        
         # Get rid of the prompt (-1 because of the shift done in get_per_token_logps)
 
         prompt_length = batched_inputs["input_ids"].size(1)
         per_token_logps = per_token_logps[:, prompt_length - 1:]
-
+        per_token_entropys = per_token_entropys[:, prompt_length - 1:]
+        ppl = -((per_token_logps * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean() 
         with torch.inference_mode():
             if self.ref_model is not None:
-                ref_per_token_logps = get_per_token_logps(self.ref_model, **batched_inputs1)
+                ref_per_token_logps, ref_per_token_entropys = get_per_token_logps(self.ref_model, **batched_inputs1)
             else:
                 with self.accelerator.unwrap_model(model).disable_adapter():
-                    ref_per_token_logps = get_per_token_logps(model, **batched_inputs1)
+                    ref_per_token_logps, ref_per_token_entropys = get_per_token_logps(model, **batched_inputs1)
         ref_per_token_logps = ref_per_token_logps[:, prompt_length - 1:]
+        ref_per_token_entropys = ref_per_token_entropys[:, prompt_length - 1:]
+        ref_ppl = -((ref_per_token_logps * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
 
         # Compute the KL divergence between the model and the reference model
-        per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+        k1 = per_token_logps - ref_per_token_logps
+        k3 = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+        kimi = 0.5*(per_token_logps - ref_per_token_logps)**2
+        
+        if self.script_args.kl_approximator == 'k3':
+            per_token_kl = k3
+        elif self.script_args.kl_approximator == 'k1':
+            per_token_kl = k1
+        elif self.script_args.kl_approximator in ['kimikl', 'fullkimi']:
+            per_token_kl = kimi
+
+        # Compute the entropy reg loss
+        entropy_loss = -per_token_entropys
+        ref_entropy_loss = -ref_per_token_entropys
 
         # Decode the generated completions
         completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
@@ -627,6 +671,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         rewards_per_func = gather(rewards_per_func)
         # Sum the rewards from all reward functions
         rewards = rewards_per_func.sum(dim=1)
+        rewards = self.script_args.reward_scale*rewards
 
         # Compute grouped-wise rewards
         mean_grouped_rewards = rewards.view(-1, self.num_generations).mean(dim=1)
@@ -635,7 +680,17 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Normalize the rewards to compute the advantages
         mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
-        advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+        
+        # compute advantages
+        if self.script_args.no_mean_for_same_reward:
+            std_mask  = torch.tensor([1.0 if std.item() != 0 else 0.0 for std in std_grouped_rewards], device=self.accelerator.device)
+            advantages = (rewards - mean_grouped_rewards*std_mask) / (std_grouped_rewards + 1e-4)
+            advantages = torch.clamp(advantages, min=-1.0, max=1.0)
+        else:
+            if self.script_args.kl_approximator == 'fullkimi':
+                advantages = rewards - mean_grouped_rewards
+            else:   
+                advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
 
         process_slice = slice(
             self.accelerator.process_index * len(prompts),
@@ -644,8 +699,15 @@ class Qwen2VLGRPOTrainer(Trainer):
         advantages = advantages[process_slice]
 
         # x - x.detach() allows for preserving gradients from x
-        per_token_loss = torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
-        per_token_loss = -(per_token_loss - self.beta * per_token_kl)
+        if self.script_args.kl_approximator == 'fullkimi':
+            per_token_loss = -torch.exp(per_token_logps) * advantages.unsqueeze(1)
+        else:
+            per_token_loss = -torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
+        if self.script_args.use_kl:
+            per_token_loss += self.beta * per_token_kl
+        if self.script_args.entropy_reg:
+            per_token_loss += self.script_args.entropy_weight*entropy_loss
+        
         loss = ((per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
         # tot_ppl = per_token_logps.sum(dim=1) / completion_mask.sum(dim=1)
         
@@ -661,12 +723,31 @@ class Qwen2VLGRPOTrainer(Trainer):
                 reward_func_name = reward_func.__name__
             self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
 
-        self._metrics["reward"].append(rewards.mean().item())
-        self._metrics["reward_std"].append(std_grouped_rewards.mean().item())
-        
-        mean_kl = ((per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
-        self._metrics["kl"].append(mean_kl.mean().item())
+        # log reward metrics
+        self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
+        self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
 
+        # log kl metrics
+        mean_k1_kl = ((k1 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        mean_k3_kl = ((k3 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        mean_kimi_kl = ((kimi * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics["k1_kl"].append(self.accelerator.gather_for_metrics(mean_k1_kl).mean().item())
+        self._metrics["k3_kl"].append(self.accelerator.gather_for_metrics(mean_k3_kl).mean().item())
+        self._metrics["kimi_kl"].append(self.accelerator.gather_for_metrics(mean_kimi_kl).mean().item())
+        
+        # log entropy metrics
+        mean_entropy_loss = ((entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()   
+        mean_ref_entropy_loss = ((ref_entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        self._metrics['entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss).mean().item())
+        self._metrics['delta_ref_entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss-mean_ref_entropy_loss).mean().item())
+        
+        # log ppl and other metrics
+        self._metrics['ppl'].append(self.accelerator.gather_for_metrics(ppl).mean().item())
+        self._metrics['delta_ref_ppl'].append(self.accelerator.gather_for_metrics(ppl-ref_ppl).mean().item())
+        self._metrics['advantages'].append(self.accelerator.gather_for_metrics(advantages.mean()).mean().item())
+        if self.accelerator.is_main_process:
+            self._metrics["temperature"].append(self.sampling_params.temperature)
+        
         return loss
 
     def log(self, logs: dict[str, float], start_time: Optional[float] = None) -> None:
@@ -736,3 +817,4 @@ class Qwen2VLGRPOTrainer(Trainer):
         )
 
         model_card.save(os.path.join(self.args.output_dir, "README.md")) 
+
