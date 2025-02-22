@@ -3,6 +3,24 @@ import os
 import time
 from datetime import datetime
 from math_verify import parse, verify
+from scipy.optimize import linear_sum_assignment
+import torch
+import numpy as np
+import math
+from open_r1.utils import extract_bbox_answer, compute_iou
+
+def log(content, sol, other_info, reward, tag=None):
+    log_path = os.getenv("LOG_PATH", f"/data/ICCV2025/PaR/MMR1/logs/train_{time.strftime('%Y-%m-%d')}.log")
+    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+    with open(log_path, "a") as f:
+        try:
+            f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
+            f.write(f"Content: {content}\n")
+            f.write(f"Solution: {sol}\n")
+            if other_info is not None:
+                f.write(f"Other info: {other_info}\n")
+        except:
+            f.write("writeing error")
 
 def accuracy_reward(completions, solution, **kwargs):
     """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
@@ -37,17 +55,9 @@ def accuracy_reward(completions, solution, **kwargs):
                 pass  # Keep reward as 0.0 if both methods fail
 
         rewards.append(reward)
-        # if os.getenv("DEBUG_MODE") == "true":
-        log_path = os.getenv("LOG_PATH", f"/data/ICCV2025/PaR/MMR1/logs/train_{time.strftime('%Y-%m-%d')}.log")
-        with open(log_path, "a") as f:
-            try:
-                f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
-                f.write(f"Content: {content}\n")
-                f.write(f"Solution: {sol}\n")
-            except:
-                f.write("writeing error")
-    return rewards
+        # log(content, sol, None, reward, "accuracy_reward")
 
+    return rewards
 
 def format_reward(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
@@ -55,6 +65,25 @@ def format_reward(completions, **kwargs):
     completion_contents = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, content) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
+
+def counting_wo_format_reward(completions, **kwargs):
+    """We only need to check if the completion is a number without any other text."""
+    pattern = r"^\d+$"
+    completion_contents = [completion[0]["content"] for completion in completions]
+    matches = [re.match(pattern, content) for content in completion_contents]
+    return [1.0 if match else 0.0 for match in matches]
+
+def accuracy_reward_wo_format(completions, solution, **kwargs):
+    """Reward function that checks if the completion is a number without any other text."""
+    rewards = []
+    contents = [completion[0]["content"] for completion in completions]
+    for content, sol in zip(contents, solution):
+        try:
+            rst = eval(content.strip())
+            rewards.append(1.0 if rst == sol else 0.0)
+        except:
+            rewards.append(0.0)
+    return rewards
 
 def answer_format_reward(completions, **kwargs):
     """Reward function that checks if the completion is a valid answer."""
@@ -160,4 +189,130 @@ def yjs_perpo_reward(completions, solution, **kwargs):
             rewards.append(iou**2)
         except:
             rewards.append(-1.0)
+    return rewards
+
+def got_num_click_reward(completions, **kwargs):
+    rewards = []
+    contents = [completion[0]["content"] for completion in completions]
+    for content in contents:
+        try:
+            content_match = re.search(r'<think>(.*?)</think>', content)
+            answer_match = re.search(r'<answer>(.*?)</answer>', content)
+            clicks_pred = content_match.group(1).strip() if content_match else content.strip()
+            answer_pred = answer_match.group(1).strip() if answer_match else content.strip()
+            pred_num = len(eval(clicks_pred.strip()))
+            gt_num = eval(answer_pred.strip())
+            # rewards.append( abs(pred_num - gt_num) / max(pred_num, gt_num))
+            if pred_num == gt_num:
+                rewards.append(1.0)
+            else:
+                rewards.append(0.0)
+        except:
+            rewards.append(0.0)
+    return rewards
+
+def got_click_reward(completions, solution, **kwargs):
+    # Function to match the points
+    def match_and_compute_distances(pred, gt, return_indices=False):
+        """
+        Matches points from pred to gt based on the minimum L2 distance using the Hungarian algorithm.
+        Returns the distances between the matched points. Optionally returns the indices of matched points.
+
+        Parameters:
+        - pred: List of prediction points (list of tuples)
+        - gt: List of ground truth points (list of tuples)
+        - return_indices: Whether to return the indices of matched points (default: False)
+
+        Returns:
+        - distances: Tensor of distances between matched points
+        - (row_ind, col_ind): Indices of matched points (if return_indices is True)
+        """
+        pred_tensor = torch.tensor(pred, dtype=torch.float32)
+        gt_tensor = torch.tensor(gt, dtype=torch.float32)
+        
+        cost_matrix = torch.cdist(pred_tensor, gt_tensor, p=2)
+        row_ind, col_ind = linear_sum_assignment(cost_matrix.cpu().numpy())
+        
+        # Extract matched points
+        matched_pred = pred_tensor[torch.from_numpy(row_ind)]
+        matched_gt = gt_tensor[torch.from_numpy(col_ind)]
+        
+        # Compute distances
+        distances = torch.norm(matched_pred - matched_gt, p=2, dim=1)
+        
+        if return_indices:
+            return distances, (torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64))
+        else:
+            return distances
+    
+    rewards = []
+    clicks_gt = kwargs['clicks']
+    contents = [completion[0]["content"] for completion in completions]
+    for content, click_gt in zip(contents, clicks_gt):
+        try:
+            content_match = re.search(r'<think>(.*?)</think>', content)
+            clicks_pred = eval(f"[{content_match.group(1).strip() if content_match else content.strip()}]")
+            distances = match_and_compute_distances(clicks_pred, click_gt)
+            scores = [ (1 - distance / 1000 * math.sqrt(2)).item() for distance in distances]
+            rewards.append(np.mean(scores))
+        except:
+            rewards.append(0.0)
+    
+    return rewards
+
+def got_sequence_reward(completions, solution, **kwargs):
+    # 分阶段验证：格式正确 → 点击次数正确 → 点击位置+答案正确
+    format_scores = format_reward(completions)
+    num_click_scores = got_num_click_reward(completions)
+    click_scores = got_click_reward(completions, solution, **kwargs)
+    accuracy_scores = accuracy_reward(completions, solution)
+    rewards = []
+    for fmt, num, clk, acc in zip(format_scores, num_click_scores, 
+                                 click_scores, accuracy_scores):
+        score = 0.0
+        # 阶段1：格式不正确直接0分
+        if fmt < 1.0:
+            rewards.append(score)
+            continue
+        score += 0.25
+        # 阶段2：点击次数误差超过阈值则0分
+        if num == 0.0:
+            rewards.append(score)
+            continue
+        score += 0.25
+        # 阶段3：综合点击位置精度和答案正确性
+        score += 0.7 * clk + 0.3 * acc
+        rewards.append(score)
+    
+    contents = [completion[0]["content"] for completion in completions]
+    for completion, sol, reward in zip(contents, kwargs['clicks'], rewards):
+        log(completion, sol, None, reward, "got_sequence_reward")
+
+    return rewards
+
+def qwenvl_rec_format_reward(completions, **kwargs):
+    """Reward function that checks if the completion has a specific format."""
+    pattern = r"^<|object_ref_start|>.*?<|object_ref_end|><|box_start|>.*?<|box_end|><|im_end|>"
+    completion_contents = [completion[0]["content"].replace("<|endoftext|>", "") for completion in completions]
+    matches = [re.match(pattern, content) for content in completion_contents]
+    return [1.0 if match else 0.0 for match in matches]
+
+def qwenvl_rec_iou_reward(completions, solution, **kwargs):
+    rewards = []
+    contents = [completion[0]["content"].replace("<|endoftext|>", "") for completion in completions]
+    for completion, sol in zip(contents, solution):
+        bbox, is_qwen2vl = extract_bbox_answer(completion)
+        iou = compute_iou(bbox, eval(sol))
+        rewards.append(iou**2)
+        log(completion + f"\nBounding box: {bbox}", sol, None, iou**2, "qwenvl_rec_iou_reward")
+    return rewards
+
+def qwenvl_rec_iou_1_reward(completions, solution, **kwargs):
+    rewards = []
+    contents = [completion[0]["content"].replace("<|endoftext|>", "") for completion in completions]
+    for completion, sol in zip(contents, solution):
+        bbox, is_qwen2vl = extract_bbox_answer(completion)
+        iou = compute_iou(bbox, eval(sol))
+        rewards.append(iou)
+        log(completion + f"\nBounding box: {bbox}", sol, None, iou, "qwenvl_rec_iou_reward")
     return rewards

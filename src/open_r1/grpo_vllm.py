@@ -84,7 +84,6 @@ def main(script_args, training_args, model_args):
     # sample from trainset
     if script_args.train_sample_size is not None:
         dataset[script_args.dataset_train_split] = dataset['train'].select(range(script_args.train_sample_size))
-
     # Format into conversation
     system_prompt = system_prompt_registry[script_args.system_prompt_template]
     question_template = question_template_registry[script_args.question_template]

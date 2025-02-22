@@ -179,6 +179,7 @@ checkpoints/
 
 *.json
 *.jsonl
+*.csv
 
 dirty_cache/
 local_scripts/eval/recore_wandb.py
@@ -188,3 +189,4 @@ local_scripts/lazy
 local_scripts/data/mask_datas
 eval/evaluate_counting_bon.py
 eval/evaluate_counting_wo_format.py
+local_scripts/train/grounding

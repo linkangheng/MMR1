@@ -423,7 +423,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 self.llm = LLM(
                     model=model.name_or_path,
                     device=vllm_device,
-                    gpu_memory_utilization=0.7,
+                    gpu_memory_utilization=0.5,
                     # Automatic Prefix Caching caches the KV cache of existing queries, so that a new query can
                     # directly reuse the KV cache if it shares the same prefix with one of the existing queries.
                     # This is particularly useful here because we generate completions from the same prompts.
@@ -594,8 +594,8 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Compute the KL divergence between the model and the reference model
         per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
 
-        # Decode the generated completions
-        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
+        # Decode the generated completions, skip_special_tokens=False when rec task
+        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=False)
         if is_conversational(inputs[0]):
             completions = [[{"role": "assistant", "content": completion}] for completion in completions]
 
