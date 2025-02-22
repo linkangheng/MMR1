@@ -68,6 +68,7 @@ Available Functions:
 - **Constant Scheduling:**
   - Set `--temperature_func constant` with `--temperature` to apply a fixed temperature value.
 
+---
 #### 🎛️ KL Divergence Control
 
 #### K1: Context-Distribution KL
@@ -101,8 +102,8 @@ Available Functions:
 - **Parameters:**
   - `--kimifull_weight`: Weight for KimiFull loss (default: 0.05).
 
-
-#### 📉 Entropy Regularization
+---
+### 📉 Entropy Regularization
 - **Definition:**
   - Entropy loss is computed as L_entropy = -entropy_weight * H(p), where H(p) is the entropy of the model’s output distribution. This term incentivizes the model to sharpen (low entropy) or diversify (high entropy) predictions based on the task.
 
@@ -112,6 +113,7 @@ Available Functions:
     - Use positive values to encourage higher entropy (e.g., for creative generation).
     - Use negative values to reduce entropy (e.g., for discriminative tasks like OCR or grounding).
 
+---
 #### 📊 Enhanced Training Logs
 Additional metrics are now logged to wandb and local:
 
@@ -127,12 +129,7 @@ Additional metrics are now logged to wandb and local:
 To enable logging, ensure wandb is configured in your environment.
 
 ## 🚀 **Quick Start**
-
-You can run the following command to quickly start the training of `LLaVA-GRPO-Perpo`.
-
-```bash
-bash local_scripts/train/train_llava_perpo.sh
-```
+We now support *counting*, *grounding*, *ocr* tasks. You can easily run the demo scripts in `local_scripts/train/`.
 
 ## 🥩 **Mini-Batch**
 Optimize GRPO memory usage by redefining per_device_batch_size as generations per device, introduces a more flexible approach:
