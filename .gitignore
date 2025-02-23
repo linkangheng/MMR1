@@ -206,6 +206,7 @@ eval/evaluate_counting_wo_format.py
 local_scripts/data/mask_datas
 local_scripts/eval/report
 local_scripts/lazy
+!local_scripts/lazy/refcoco.sh
 local_scripts/train/grounding
 local_scripts/train/lucas_counting
 local_scripts/train/train_llava1.5-7b_perpo_demo_parameter.sh
