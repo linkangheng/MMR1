@@ -156,3 +156,29 @@ def compute_iou(box1, box2):
     union_area = box1_area + box2_area - intersection_area
     iou = intersection_area / union_area
     return iou
+
+def save_dict_to_json(dict_data, filename):
+    """
+    Save a dictionary to a JSON file.
+    
+    Args:
+        dict_data (dict): Dictionary to be saved
+        filename (str): Path to the output JSON file
+    """
+    try:
+        with open(filename, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(dict_data, indent=4))
+    except Exception as e:
+        print(f"error saving dictionary to {filename}: {e}")
+
+def save_args_to_txt(args, filename):
+    """
+    Save the parsed arguments to a txt file.
+    
+    Args:
+        args (argparse.Namespace): The parsed arguments
+        filename (str): The path to the output txt file
+    """
+    with open(filename, 'w') as f:
+        for key, value in vars(args).items():
+            f.write(f"{key}: {value}\n")

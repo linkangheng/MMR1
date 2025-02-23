@@ -13,59 +13,28 @@
 # limitations under the License.
 
 import os
-import re
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
-
-from datasets import load_dataset, load_from_disk, Image, Value
-from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
+from datasets import load_dataset, load_from_disk, Image
+from trl import GRPOConfig, ModelConfig, TrlParser, get_peft_config
 from open_r1.constants import reward_funcs_registry, system_prompt_registry, question_template_registry, answer_template_registry
 from open_r1.utils import *
 from open_r1.trainer.grpo_trainer_vllm import Qwen2VLGRPOTrainer
-
-@dataclass
-class GRPOScriptArguments(ScriptArguments):
-    """
-    Script arguments for the GRPO training script.
-
-    Args:
-        reward_funcs (`list[str]`):
-            List of reward functions. Possible values: 'accuracy', 'format'.
-    """
-
-    reward_funcs: list[str] = field(
-        default_factory=lambda: ["accuracy", "format"],
-        metadata={"help": "List of reward functions. Possible values: 'accuracy', 'format'"},
-    )
-    max_pixels: Optional[int] = field(
-        default=12845056,
-        metadata={"help": "Maximum number of pixels for the image"},
-    )
-    min_pixels: Optional[int] = field(
-        default=3136,
-        metadata={"help": "Minimum number of pixels for the image"},
-    )
-    system_prompt_template: Optional[str] = field(
-        default="reasoning",
-        metadata={"help": "System prompt template. Possible values: 'llava', 'qwen2', 'reasoning'"},
-    )
-    question_template: Optional[str] = field(
-        default="default",
-        metadata={"help": "Question template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
-    )
-    answer_template: Optional[str] = field(
-        default="default",
-        metadata={"help": "Answer template. Possible values: 'default', 'llava', 'qwen2', 'reasoning'"},
-    )
-    train_sample_size: Optional[int] = field(
-        default=None,
-        metadata={"help": "Train sample size. If None, use all samples."},
-    )
+from open_r1.arguments import GRPOScriptArguments
 
 def main(script_args, training_args, model_args):
     # Get reward functions
     reward_funcs = [reward_funcs_registry[func] for func in script_args.reward_funcs]
+    
+    # prepare parameters for Kimi-KL
+    if script_args.kl_approximator == 'fullkimi':
+        script_args.use_kl = True
+        training_args.sync_ref_model = True
+        training_args.ref_model_mixup_alpha = 1.0
+        training_args.ref_model_sync_steps = 1
+    
+    # save args to output_dir
+    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'script_args.txt'))
+    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'training_args.txt'))
+    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'model_args.txt'))
 
     # Load the dataset
     if "json" in script_args.dataset_name:
@@ -111,6 +80,7 @@ def main(script_args, training_args, model_args):
         attn_implementation=model_args.attn_implementation,
         max_pixels=script_args.max_pixels,
         min_pixels=script_args.min_pixels,
+        script_args=script_args
     )
 
     # Train and push the model to the Hub
