@@ -29,8 +29,7 @@
 - [ ] Remove all the absolute path
 
 ## 📅 **Update Logs**
-<details>
-<summary>🤯2025.02.16</summary>
+### 🤯2025.02.16
 - Move all constants to constants.py
 - Add the `train_sample_size` to config the number of training samples
 - Add system_prompt_template, question_template, answer_template to set the system prompt, question template, answer template, if you want to use a custom template, you can design your own template in the `constants.py` and set the `system_prompt_template`, `question_template`, `answer_template` to your custom template name.
@@ -42,10 +41,8 @@
     "image": <image_path>
 }
 ```
-</details>
 
-<details>
-<summary>🤯2025.02.17</summary>
+### 🤯2025.02.17
 #### 🖼️ OCR Task Support
 The model now supports training on OCR (Optical Character Recognition) tasks.
 
@@ -147,10 +144,8 @@ Additional metrics are now logged to wandb and local:
 - `entropy`: Output distribution entropy.
 - `temperature`: Current temperature value.
 To enable logging, ensure wandb is configured in your environment.
-</details>
 
-<details>
-<summary>🤯2025.02.23</summary>
+### 🤯2025.02.23
 #### 🔥 Inference
 
 We provide a script to easily inference the model.
@@ -173,8 +168,6 @@ bash local_scripts/eval/evaluate_refcoco.sh
 - Use `--skip_special_tokens` when requiring special tokens.
 
 ---
-
-</details>
 
 ## 🚀 **Quick Start**
 We now support *counting*, *grounding*, *ocr* tasks. You can easily run the demo scripts in `local_scripts/train/`.
