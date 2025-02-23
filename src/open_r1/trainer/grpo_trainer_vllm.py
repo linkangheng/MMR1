@@ -639,7 +639,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         ref_entropy_loss = -ref_per_token_entropys
 
         # Decode the generated completions, skip_special_tokens=False when rec task
-        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=False)
+        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=self.script_args.skip_special_tokens)
         if is_conversational(inputs[0]):
             completions = [[{"role": "assistant", "content": completion}] for completion in completions]
 
