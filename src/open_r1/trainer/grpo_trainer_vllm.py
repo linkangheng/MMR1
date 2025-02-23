@@ -335,7 +335,6 @@ class Qwen2VLGRPOTrainer(Trainer):
         self.num_generations = args.num_generations  # = G in the GRPO paper, 8
 
         self.beta = args.beta
-        
 
         # The trainer estimates the number of FLOPs (floating-point operations) using the number of elements in the
         # input tensor associated with the key "input_ids". However, in GRPO, the sampled data does not include the
@@ -444,7 +443,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 self.llm = LLM(
                     model=model.name_or_path,
                     device=vllm_device,
-                    gpu_memory_utilization=0.7,
+                    gpu_memory_utilization=0.5,
                     # Automatic Prefix Caching caches the KV cache of existing queries, so that a new query can
                     # directly reuse the KV cache if it shares the same prefix with one of the existing queries.
                     # This is particularly useful here because we generate completions from the same prompts.
@@ -605,7 +604,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         batched_inputs1["input_ids"] = prompt_completion_ids
         batched_inputs1["attention_mask"] = attention_mask
         per_token_logps, per_token_entropys = get_per_token_logps(model, **batched_inputs1)
-        
+
         # Get rid of the prompt (-1 because of the shift done in get_per_token_logps)
 
         prompt_length = batched_inputs["input_ids"].size(1)
@@ -627,6 +626,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         k3 = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
         kimi = 0.5*(per_token_logps - ref_per_token_logps)**2
         
+        # select the kl approximator
         if self.script_args.kl_approximator == 'k3':
             per_token_kl = k3
         elif self.script_args.kl_approximator == 'k1':
@@ -638,8 +638,8 @@ class Qwen2VLGRPOTrainer(Trainer):
         entropy_loss = -per_token_entropys
         ref_entropy_loss = -ref_per_token_entropys
 
-        # Decode the generated completions
-        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
+        # Decode the generated completions, skip_special_tokens=False when rec task
+        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=self.script_args.skip_special_tokens)
         if is_conversational(inputs[0]):
             completions = [[{"role": "assistant", "content": completion}] for completion in completions]
 
@@ -817,4 +817,3 @@ class Qwen2VLGRPOTrainer(Trainer):
         )
 
         model_card.save(os.path.join(self.args.output_dir, "README.md")) 
-

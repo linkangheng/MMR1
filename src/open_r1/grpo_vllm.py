@@ -32,9 +32,9 @@ def main(script_args, training_args, model_args):
         training_args.ref_model_sync_steps = 1
     
     # save args to output_dir
-    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'script_args.txt'))
-    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'training_args.txt'))
-    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'model_args.txt'))
+    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'config', 'script_args.txt'))
+    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'config', 'training_args.txt'))
+    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'config', 'model_args.txt'))
 
     # Load the dataset
     if "json" in script_args.dataset_name:
@@ -42,7 +42,7 @@ def main(script_args, training_args, model_args):
         dataset = load_dataset('json',data_files=script_args.dataset_name,)
     else:
         try:
-             
+            # hf-online dataset
             dataset = load_dataset(script_args.dataset_name)
             if "image" not in dataset[script_args.dataset_train_split].features:
                 raise ValueError("The dataset is created locally.")
@@ -53,7 +53,6 @@ def main(script_args, training_args, model_args):
     # sample from trainset
     if script_args.train_sample_size is not None:
         dataset[script_args.dataset_train_split] = dataset['train'].select(range(script_args.train_sample_size))
-
     # Format into conversation
     system_prompt = system_prompt_registry[script_args.system_prompt_template]
     question_template = question_template_registry[script_args.question_template]

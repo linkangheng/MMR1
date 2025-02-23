@@ -145,6 +145,30 @@ Additional metrics are now logged to wandb and local:
 - `temperature`: Current temperature value.
 To enable logging, ensure wandb is configured in your environment.
 
+### 🤯2025.02.23
+#### 🔥 Inference
+
+We provide a script to easily inference the model.
+
+```bash
+bash local_scripts/eval/inference.sh
+```
+---
+
+#### Support quickly evaluate refcoco/+/g
+
+```bash
+bash local_scripts/eval/evaluate_refcoco.sh
+```
+
+---
+
+#### Add `--skip_special_tokens` for rec task
+
+- Use `--skip_special_tokens` when requiring special tokens.
+
+---
+
 ## 🚀 **Quick Start**
 We now support *counting*, *grounding*, *ocr* tasks. You can easily run the demo scripts in `local_scripts/train/`.
 

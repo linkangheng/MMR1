@@ -71,6 +71,10 @@ class GRPOScriptArguments(ScriptArguments):
         default=1.0, 
         metadata={"help": "the ending temperature for training(optional for linear temperature)"}
     )
+    skip_special_tokens: bool = field(
+        default=True,
+        metadata={"help": "whether to skip special tokens, use when rec task."}
+    )
     no_mean_for_same_reward: bool = field(
         default=False,
         metadata={"help": "whether to not minus  reward mean if same reward"}
