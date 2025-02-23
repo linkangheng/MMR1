@@ -1,5 +1,6 @@
 import json
 import re
+import os
 
 def get_qa_pairs(conversation: list):
     qa_pairs = []
@@ -179,6 +180,7 @@ def save_args_to_txt(args, filename):
         args (argparse.Namespace): The parsed arguments
         filename (str): The path to the output txt file
     """
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w') as f:
         for key, value in vars(args).items():
             f.write(f"{key}: {value}\n")

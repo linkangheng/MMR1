@@ -32,9 +32,9 @@ def main(script_args, training_args, model_args):
         training_args.ref_model_sync_steps = 1
     
     # save args to output_dir
-    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'script_args.txt'))
-    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'training_args.txt'))
-    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'model_args.txt'))
+    save_args_to_txt(script_args, os.path.join(training_args.output_dir, 'config', 'script_args.txt'))
+    save_args_to_txt(training_args, os.path.join(training_args.output_dir, 'config', 'training_args.txt'))
+    save_args_to_txt(model_args, os.path.join(training_args.output_dir, 'config', 'model_args.txt'))
 
     # Load the dataset
     if "json" in script_args.dataset_name:

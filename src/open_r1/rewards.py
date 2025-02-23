@@ -15,6 +15,7 @@ from open_r1.utils import extract_bbox_answer, compute_iou
 
 def log(content, sol, other_info, reward, tag=None):
     log_dir = os.getenv("LOG_DIR", None)
+    os.makedirs(log_dir, exist_ok=True)
     if log_dir is None:
         warnings.warn("LOG_DIR is not set, log will not be saved")
         return
