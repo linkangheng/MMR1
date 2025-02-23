@@ -724,27 +724,27 @@ class Qwen2VLGRPOTrainer(Trainer):
             self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
 
         # log reward metrics
-        self._metrics["reward"].append(rewards.mean().item())
-        self._metrics["reward_std"].append(std_grouped_rewards.mean().item())
+        self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
+        self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
 
         # log kl metrics
         mean_k1_kl = ((k1 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
         mean_k3_kl = ((k3 * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
         mean_kimi_kl = ((kimi * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
-        self._metrics["k1_kl"].append(mean_k1_kl.item())
-        self._metrics["k3_kl"].append(mean_k3_kl.item())
-        self._metrics["kimi_kl"].append(mean_kimi_kl.item())
+        self._metrics["k1_kl"].append(self.accelerator.gather_for_metrics(mean_k1_kl).mean().item())
+        self._metrics["k3_kl"].append(self.accelerator.gather_for_metrics(mean_k3_kl).mean().item())
+        self._metrics["kimi_kl"].append(self.accelerator.gather_for_metrics(mean_kimi_kl).mean().item())
         
         # log entropy metrics
         mean_entropy_loss = ((entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()   
         mean_ref_entropy_loss = ((ref_entropy_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
-        self._metrics['entropy_loss'].append(mean_entropy_loss.item())
-        self._metrics['delta_ref_entropy_loss'].append(mean_entropy_loss-mean_ref_entropy_loss.item())
+        self._metrics['entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss).mean().item())
+        self._metrics['delta_ref_entropy_loss'].append(self.accelerator.gather_for_metrics(mean_entropy_loss-mean_ref_entropy_loss).mean().item())
         
         # log ppl and other metrics
-        self._metrics['ppl'].append(ppl.mean().item())
-        self._metrics['delta_ref_ppl'].append((ppl-ref_ppl).mean().item())
-        self._metrics['advantages'].append(advantages.mean().item())
+        self._metrics['ppl'].append(self.accelerator.gather_for_metrics(ppl).mean().item())
+        self._metrics['delta_ref_ppl'].append(self.accelerator.gather_for_metrics(ppl-ref_ppl).mean().item())
+        self._metrics['advantages'].append(self.accelerator.gather_for_metrics(advantages.mean()).mean().item())
         if self.accelerator.is_main_process:
             self._metrics["temperature"].append(self.sampling_params.temperature)
         
