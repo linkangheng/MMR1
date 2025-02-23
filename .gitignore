@@ -213,3 +213,4 @@ test.py
 train_grounding.sh
 kill.sh
 inference/
+eval/kane_eval

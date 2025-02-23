@@ -7,7 +7,6 @@ import re
 import os
 import datetime
 
-# "pixmo_count_test540_counting_problems", "pixmo_count_validation540_counting_problems", "superclevr_test200_counting_problems", "countbenchqa_test491_counting_problems"
 choises = [
     "pixmo_count_test540_counting_problems",
     "pixmo_count_validation540_counting_problems",
@@ -15,9 +14,9 @@ choises = [
     "countbenchqa_test491_counting_problems"
 ]
 
-EVAL_ROOT="/data/ICCV2025/PaR/MMR1/eval"
-MODEL_ROOT="/mnt/jfs-test/checkpoints/mmr1/debug"
-MODEL_NAME=f"qwen2-vl-2b_vllm_lucas_counting_molmo1k_roll7_grounding_as_think" # Qwen2vl-2b-Instruct for original scores
+EVAL_ROOT="<eval_root>"
+MODEL_ROOT="<model_root>"
+MODEL_NAME=f"<model_name>"
 MODEL_PATH=f"{MODEL_ROOT}/{MODEL_NAME}"
 BSZ=64 # reduce it if GPU OOM
 
@@ -51,29 +50,17 @@ for TASK in choises:
             data.append(json.loads(line))
 
 
-    # QUESTION_TEMPLATE = "{question} Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags."
-    # QUESTION_TEMPLATE = "{question} Output the final answer (number) in <answer> </answer> tags."
-    QUESTION_TEMPLATE = "{question} follow the format <think> (x1, y1),(x2, y2)...(xn, yn) </think><answer> n </answer>"
-    GOT_SYSTEM_PROMPT = (
-    "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
-    "first Output center coordinates of specified objects as (x,y) pairs in <think> tags, the coordinate range is [0,1000], "
-    "then provide the total count in <answer> tags, respectively, i.e., "
-    "<think> (x1,y1),(x2,y2)...(xn,yn) </think><answer> n </answer>"
-    )
+    QUESTION_TEMPLATE = "{question} Output the thinking process in <think> </think> and final answer (number) in <answer> </answer> tags."
     messages = []
 
     for i in data:
         message = [
             {
-                "role": "system",
-                "content": GOT_SYSTEM_PROMPT
-            },
-            {
             "role": "user",
             "content": [
                 {
                     "type": "image", 
-                    "image": f"file://{os.path.join('/mnt/jfs-test/data/clevr_cogen_a_eval', i['image_path'])}"
+                    "image": f"file://{os.path.join('<image_path>', i['image_path'])}"
                 },
                 {
                     "type": "text",
@@ -126,21 +113,25 @@ for TASK in choises:
             return int(match.group(1))
         return None
 
-    # def str_map_number(output_str):
-    #     str_map_number = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17}
-    #     for k, v in str_map_number.items():
-    #         if k in output_str:
-    #             return v
-    #     return None
-
-    
-    # def extract_number_answer(output_str):
-    #     answer_pattern = r'\d+'
-    #     match = re.search(answer_pattern, output_str)
-    #     if match:
-    #         return int(match.group(0))
-    #     else:
-    #         return str_map_number(output_str)
+    def extract_number_answer(output_str):
+        ''' Weak match for baseline '''
+        def str_map_number(output_str):
+            str_map_number = {
+                "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, 
+                "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, 
+                "fifteen": 15, "sixteen": 16, "seventeen": 17
+            }
+            for k, v in str_map_number.items():
+                if k in output_str:
+                    return v
+            return None
+        answer_pattern = r'\d+'
+        match = re.search(answer_pattern, output_str)
+        if match:
+            return int(match.group(0))
+        else:
+            return str_map_number(output_str)
 
     final_output = []
     correct_number = 0
