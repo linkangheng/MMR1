@@ -99,4 +99,26 @@ def json_map(
         "solution": solution,
         "problem": question,
     }
+def save_dict_to_json(dict_data, filename):
+    """
+    Save a dictionary to a JSON file.
+    
+    Args:
+        dict_data (dict): Dictionary to be saved
+        filename (str): Path to the output JSON file
+    """
+    try:
+        with open(filename, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(dict_data, indent=4))
+    except Exception as e:
+        print(f"error saving dictionary to {filename}: {e}")
 
+def save_args_to_txt(args, filename):
+    """
+    将 argparse 解析的参数保存到 txt 文件中
+    :param args: argparse.Namespace 对象，包含解析后的参数
+    :param filename: 要保存的文件名
+    """
+    with open(filename, 'w') as f:
+        for key, value in vars(args).items():
+            f.write(f"{key}: {value}\n")

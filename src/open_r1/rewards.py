@@ -1,11 +1,32 @@
 import re
 import os
-import time
 from datetime import datetime
 from math_verify import parse, verify
 from rewards_utils import calculate_f_score, merge_lines
 import Levenshtein
 
+import nltk
+import jieba
+from nltk.translate import meteor_score
+from nltk.metrics import precision, recall, f_measure
+import warnings
+
+def log(content, sol, other_info, reward, tag=None):
+    log_dir = os.getenv("LOG_DIR", None)
+    if log_dir is None:
+        warnings.warn("LOG_DIR is not set, log will not be saved")
+        return
+    log_path = os.path.join(log_dir, f"{tag}.log")
+    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+    with open(log_path, "a") as f:
+        try:
+            f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
+            f.write(f"Content: {content}\n")
+            f.write(f"Solution: {sol}\n")
+            if other_info is not None:
+                f.write(f"Other info: {other_info}\n")
+        except:
+            f.write("writeing error")
 
 def accuracy_reward(completions, solution, **kwargs):
     """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
@@ -49,62 +70,19 @@ def accuracy_reward(completions, solution, **kwargs):
                 f.write(f"Solution: {sol}\n")
             except:
                 f.write("writing error")
+        log(content, sol, None, reward, "rec_acc")
     return rewards
 
-
-def format_reward(completions, **kwargs):
+def format_reward(completions, pattern, **kwargs):
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<think>.*?</think><answer>.*?</answer>$"
     completion_contents = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, content) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
 
-def perpo_format_reward(completions, **kwargs):
-    """Reward function that checks if the completion follow the perpo format."""
-    matches = []
-    for completion in completions:
-        try:
-            rst = eval(completion.strip())
-            matches.append(isinstance(rst, list) and len(rst) == 4)
-        except:
-            matches.append(False)
-    return [1.0 if match else 0.0 for match in matches]
-
-def perpo_iou_reward(completions, solution, **kwargs):
-    """Reward function that checks if the completion follow the perpo format."""
-    def compute_iou(gt_list, model_answer_list):
-        x1 = max(gt_list[0], model_answer_list[0])
-        y1 = max(gt_list[1], model_answer_list[1])
-        x2 = min(gt_list[2], model_answer_list[2])
-        y2 = min(gt_list[3], model_answer_list[3])
-        # make sure the model_answer_list is valid
-        if model_answer_list[0] > model_answer_list[2] or model_answer_list[1] > model_answer_list[3]:
-            return -0.6
-        # make sure the model_answer_list is not empty
-        if x2 <= x1 or y2 <= y1:
-            return -0.2
-        # calculate the intersection
-        intersection = (x2 - x1) * (y2 - y1)
-
-        gt_area = (gt_list[2] - gt_list[0]) * (gt_list[3] - gt_list[1])
-        pred_area = (model_answer_list[2] - model_answer_list[0]) * (model_answer_list[3] - model_answer_list[1])
-
-        union = gt_area + pred_area - intersection
-
-        if union <= 0:
-            return 0.0
-
-        iou = intersection / union
-        return iou
-    
-    rewards = [0.0 for _ in completions]
-    for i, (completion, sol) in enumerate(zip(completions, solution)):
-        if perpo_format_reward(completion) == 0.0:
-            continue
-        rst = eval(completion.strip())
-        gt = eval(sol.strip())
-        rewards[i] = compute_iou(rst, gt)
-    return rewards
+def think_format_reward(completions, **kwargs):
+    """Reward function that checks if the completion has a specific format."""
+    pattern = r"^<think>.*?</think><answer>.*?</answer>$"
+    return format_reward(completions, pattern)
 
 
 def slowper_format_reward(completions, **kwargs):
@@ -119,7 +97,8 @@ def slowper_format_reward(completions, **kwargs):
             matches.append(False)
     return [1.0 if match else 0.0 for match in matches]
 
-def yjs_perpo_reward(completions, solution, **kwargs):
+
+def perpo_reward(completions, solution, **kwargs):
     """Reward function that checks if the completion follow the perpo format."""
     def compute_iou(gt_list, model_answer_list):
         # Calculate intersection over union (IoU) between two bounding boxes
@@ -152,7 +131,10 @@ def yjs_perpo_reward(completions, solution, **kwargs):
         return iou
 
     rewards = []
-    contents = [completion[0]["content"] for completion in completions]
+    if 'content' in completions[0][0]:
+        contents = [completion[0]["content"] for completion in completions]
+    else:
+        contents = completions
     for completion, sol in zip(contents, solution):
         try:
             gt_list = eval(sol.strip())
@@ -166,42 +148,14 @@ def yjs_perpo_reward(completions, solution, **kwargs):
                 rewards.append(-1.0)
                 continue
             iou = compute_iou(gt_list, model_answer_list)
-            rewards.append(iou**2)
+            if iou <= 0:
+                rewards.append(iou)
+            else:
+                rewards.append(iou**2)
         except:
             rewards.append(-1.0)
+        log(completion, sol, None, rewards[-1], "rec_iou")
     return rewards
-
-
-
-def log(content, sol, other_info, reward, tag=None):
-    log_path = os.getenv("LOG_PATH", f"./checkpoints/logs/train_{time.strftime('%Y-%m-%d')}.log")
-    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
-    # with open(log_path, "a") as f:
-    #     try:
-    #         print('write')
-    #         f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
-    #         f.write(f"Content: {content}\n")
-    #         f.write(f"Solution: {sol}\n")
-    #         if other_info is not None:
-    #             f.write(f"Other info: {other_info}\n")
-            
-    #     except:
-    #         f.write("writeing error")
-    #     f.flush()
-    with open(log_path, "a") as f:
-        try:
-            f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
-            f.flush()  # 立即刷新
-            f.write(f"Content: {content}\n")
-            f.flush()
-            f.write(f"Solution: {sol}\n")
-            f.flush()
-            if other_info is not None:
-                f.write(f"Other info: {other_info}\n")
-                f.flush()
-        except:
-            f.write("writing error")
-            f.flush()
 
 def slowper_f1_reward(completions, solution, **kwargs):
     # parse the completion and solution
@@ -282,7 +236,6 @@ def slowper_f1_reward(completions, solution, **kwargs):
         # rst = dot_parser(eval(completion.strip()))
         # gt = dot_parser(eval(sol.strip()))
 
-
         # rst = dot_parser(completion.strip())
         gt = dot_parser(sol.strip())
         rewards[i] = compute_iou(rst, gt)
@@ -291,20 +244,14 @@ def slowper_f1_reward(completions, solution, **kwargs):
 
 def slowper_ed_reward(completions, solution, **kwargs):
     def compute_edit_distance(pred_text, gt_text):
-        """
-        计算基于编辑距离的 Reward。
-        """
-        # 计算 Levenshtein 编辑距离
         edit_distance = Levenshtein.distance(pred_text, gt_text)
 
-        # 计算归一化相似度
         max_len = max(len(pred_text), len(gt_text))
         similarity_score = 1 - (edit_distance / max_len) if max_len > 0 else 0
 
         return similarity_score
-        # # 负编辑距离 Reward
+    
         # neg_edit_distance_reward = -edit_distance
-
         # return similarity_score, neg_edit_distance_reward
 
 
@@ -314,6 +261,69 @@ def slowper_ed_reward(completions, solution, **kwargs):
         print(completion)
         rewards[i] = compute_edit_distance(completion.strip(), sol.strip())
         log(completion, sol, None, rewards[i], tag=None)
-        return rewards
+    return rewards
 
 
+        
+
+def perpo_ocr_edit_distance_reward(prompts, completions, solution, **kwargs):
+    def contain_chinese_string(text):
+        chinese_pattern = re.compile(r'[\u4e00-\u9fa5]')
+        return bool(chinese_pattern.search(text))
+    def cal_per_metrics(pred, gt):
+        metrics = {}
+        
+        if contain_chinese_string(gt) or contain_chinese_string(pred):
+            reference = jieba.lcut(gt)
+            hypothesis = jieba.lcut(pred)
+        else:
+            reference = gt.split()
+            hypothesis = pred.split()
+        
+        metrics["bleu"] = nltk.translate.bleu([reference], hypothesis)
+        metrics["meteor"] = meteor_score.meteor_score([reference], hypothesis)
+
+        reference = set(reference)
+        hypothesis = set(hypothesis)
+        metrics["f_measure"] = f_measure(reference, hypothesis)
+
+        metrics["precision"] = precision(reference, hypothesis)
+        metrics["recall"] = recall(reference, hypothesis)
+        metrics["edit_dist"] = nltk.edit_distance(pred, gt) / max(len(pred), len(gt))
+        return metrics
+
+    rewards = []
+    contents = [completion[0]["content"] for completion in completions]
+    
+    for completion, sol in zip(contents, solution):
+        try:
+            # Normalize strings by removing extra whitespace
+            completion_text = " ".join(completion.strip().split())
+            solution_text = " ".join(sol.strip().split())
+            
+            # Calculate edit distance
+            edit_dist = cal_per_metrics(completion_text, solution_text)['edit_dist']
+            
+            # Convert edit distance to reward (higher for smaller distances)
+            max_len = max(len(completion_text), len(solution_text))
+            if max_len == 0:
+                reward = 0.0
+            else:
+                # Normalize by max length and convert to reward between 0 and 1
+                normalized_dist = 1 - edit_dist
+                reward = max(0.0, normalized_dist)
+
+        except Exception as e:
+            print(f"Error in perpo_ocr_edit_distance_reward: {e}")
+            with open('./perpo_ocr_edit_distance_reward_error.txt', "a") as f:
+                try:
+                    f.write(f"Prompt: {prompts}\n")
+                    f.write(f"Content: {completion}\n")
+                    f.write(f"Solution: {sol}\n")
+                except:
+                    f.write("writeing error")
+            print(f"Error in perpo_ocr_edit_distance_reward: {completion} {sol}")
+            reward = 0.0
+        rewards.append(reward)
+        log(completion, sol, None, reward, "rec_edit_dist")
+    return rewards
