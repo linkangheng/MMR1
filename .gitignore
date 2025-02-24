@@ -187,3 +187,5 @@ local_scripts/eval/recore_wandb.py
 src/open_r1/trainer/grpo_trainer_vllm_mod.py
 checkpoints
 test
+dataset
+data_process

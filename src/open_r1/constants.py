@@ -9,8 +9,8 @@ reward_funcs_registry = {
     "yjs": yjs_perpo_reward,
     "slowper_format": slowper_format_reward,
     "slowper_f1": slowper_f1_reward,
+    "slowper_ed": slowper_ed_reward,
     "perpo_iou": perpo_iou_reward,
-    
     
 }
 
@@ -53,7 +53,8 @@ system_prompt_registry = {
     "llava": LLAVA_PROMPT,
     "qwen": QWEN2_PROMPT,
     "counting_reasoning": COUNTING_REASONING_PROMPT,
-    "slow_perception": SLOWPER_PROMPT
+    # "slow_perception": SLOWPER_PROMPT
+    "slow_perception": ''
 
 }
 

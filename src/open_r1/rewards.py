@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from math_verify import parse, verify
 from rewards_utils import calculate_f_score, merge_lines
+import Levenshtein
 
 
 def accuracy_reward(completions, solution, **kwargs):
@@ -47,7 +48,7 @@ def accuracy_reward(completions, solution, **kwargs):
                 f.write(f"Content: {content}\n")
                 f.write(f"Solution: {sol}\n")
             except:
-                f.write("writeing error")
+                f.write("writing error")
     return rewards
 
 
@@ -189,7 +190,6 @@ def log(content, sol, other_info, reward, tag=None):
     #     f.flush()
     with open(log_path, "a") as f:
         try:
-            print('write')
             f.write(f"------------- {current_time} {tag} reward: {reward} -------------\n")
             f.flush()  # 立即刷新
             f.write(f"Content: {content}\n")
@@ -219,9 +219,13 @@ def slowper_f1_reward(completions, solution, **kwargs):
             outputs_think_p = outputs_think.split('Circle:\n')[0].split('Line:\n')[1]
             if outputs_think_p[-1] == '\n':
                 outputs_think_p = outputs_think_p[:-1]
-            outputs_think_c = outputs_think.split('Line:\n')[1].split('Circle:\n')[1]
-            if outputs_think_c[-1] == '\n':
-                outputs_think_c = outputs_think_c[:-1]
+            # todo: if there is no circle
+            if len(outputs_think.split('Line:\n')[1].split('Circle:\n'))<2:
+                outputs_think_c = ''
+            else:
+                outputs_think_c = outputs_think.split('Line:\n')[1].split('Circle:\n')[1]
+                if outputs_think_c[-1] == '\n':
+                    outputs_think_c = outputs_think_c[:-1]
 
         outputs_think_p_list = outputs_think_p.split('\n')
         outputs_think_c_list = outputs_think_c.split('\n')
@@ -263,7 +267,13 @@ def slowper_f1_reward(completions, solution, **kwargs):
     contents = [completion[0]["content"] for completion in completions]
     rewards = [0.0 for _ in contents]
     for i, (completion, sol) in enumerate(zip(contents, solution)):
-        # print(completion)
+        print(completion)
+        try:
+            rst = dot_parser(completion.strip())
+        except:
+            print('invalid output!')
+            f.write('invalid output!')
+            continue
         # if slowper_format_reward(completion)[i] == 0.0:
         #     continue
         # import ipdb;ipdb.set_trace()
@@ -271,10 +281,39 @@ def slowper_f1_reward(completions, solution, **kwargs):
 
         # rst = dot_parser(eval(completion.strip()))
         # gt = dot_parser(eval(sol.strip()))
-        rst = dot_parser(completion.strip())
+
+
+        # rst = dot_parser(completion.strip())
         gt = dot_parser(sol.strip())
         rewards[i] = compute_iou(rst, gt)
         log(completion, sol, None, rewards[i], tag=None)
     return rewards
+
+def slowper_ed_reward(completions, solution, **kwargs):
+    def compute_edit_distance(pred_text, gt_text):
+        """
+        计算基于编辑距离的 Reward。
+        """
+        # 计算 Levenshtein 编辑距离
+        edit_distance = Levenshtein.distance(pred_text, gt_text)
+
+        # 计算归一化相似度
+        max_len = max(len(pred_text), len(gt_text))
+        similarity_score = 1 - (edit_distance / max_len) if max_len > 0 else 0
+
+        return similarity_score
+        # # 负编辑距离 Reward
+        # neg_edit_distance_reward = -edit_distance
+
+        # return similarity_score, neg_edit_distance_reward
+
+
+    contents = [completion[0]["content"] for completion in completions]
+    rewards = [0.0 for _ in contents]
+    for i, (completion, sol) in enumerate(zip(contents, solution)):
+        print(completion)
+        rewards[i] = compute_edit_distance(completion.strip(), sol.strip())
+        log(completion, sol, None, rewards[i], tag=None)
+        return rewards
 
 
